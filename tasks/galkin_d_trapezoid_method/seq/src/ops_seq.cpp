@@ -45,7 +45,7 @@ bool GalkinDTrapezoidMethodSEQ::RunImpl() {
   double sum = 0.0;
   for (int i = 1; i < n; ++i) {
     const double x = a + h * static_cast<double>(i);
-    sum += Function(x, func_id);  
+    sum += Function(x, func_id);
   }
 
   const double fa = Function(a, func_id);

@@ -1,17 +1,17 @@
 #pragma once
 
-#include <tuple>
 #include <cmath>
+#include <tuple>
 
 #include "task/include/task.hpp"
 
 namespace galkin_d_trapezoid_method {
 
 struct Input {
-  double a;      // левая граница интегрирования
-  double b;      // правая граница
-  int n;         // число разбиений (трапеций)
-  int func_id;   // id функции для интегрирования
+  double a;     // левая граница интегрирования
+  double b;     // правая граница
+  int n;        // число разбиений (трапеций)
+  int func_id;  // id функции для интегрирования
 };
 using InType = Input;
 using OutType = double;
@@ -27,17 +27,17 @@ enum class FunctionId : int {
 inline double Function(double x, int func_id) {
   switch (static_cast<FunctionId>(func_id)) {
     case FunctionId::Linear:
-      return x;                // f(x) = x
+      return x;  // f(x) = x
     case FunctionId::Quadratic:
-      return x * x;            // f(x) = x^2
+      return x * x;  // f(x) = x^2
     case FunctionId::Sin:
-      return std::sin(x);      // f(x) = sin(x)
+      return std::sin(x);  // f(x) = sin(x)
     default:
       return 0.0;
   }
 }
 
-inline double GetExactIntegral(const InType& in) {
+inline double GetExactIntegral(const InType &in) {
   const double a = in.a;
   const double b = in.b;
 

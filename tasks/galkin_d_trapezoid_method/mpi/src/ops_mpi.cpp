@@ -16,7 +16,7 @@ GalkinDTrapezoidMethodMPI::GalkinDTrapezoidMethodMPI(const InType &in) {
 }
 
 bool GalkinDTrapezoidMethodMPI::ValidationImpl() {
-  const auto& in = GetInput();
+  const auto &in = GetInput();
   return (in.n > 0) && (in.b > in.a);
 }
 
@@ -26,7 +26,7 @@ bool GalkinDTrapezoidMethodMPI::PreProcessingImpl() {
 }
 
 bool GalkinDTrapezoidMethodMPI::RunImpl() {
-  const auto& in = GetInput();
+  const auto &in = GetInput();
   double a = in.a;
   double b = in.b;
   int n = in.n;
@@ -36,20 +36,20 @@ bool GalkinDTrapezoidMethodMPI::RunImpl() {
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
   int base = n / size;
-  int rem  = n % size;
+  int rem = n % size;
 
   int local_n = base + (rank < rem ? 1 : 0);
 
   int start_i = rank * base + std::min(rank, rem);
-  int end_i   = start_i + local_n;  
+  int end_i = start_i + local_n;
   double h = (b - a) / static_cast<double>(n);
 
   double local_sum = 0.0;
   for (int i = start_i; i < end_i; ++i) {
-    double x_left  = a + i * h;
+    double x_left = a + i * h;
     double x_right = a + (i + 1) * h;
 
-    double f_left  = Function(x_left, in.func_id);
+    double f_left = Function(x_left, in.func_id);
     double f_right = Function(x_right, in.func_id);
 
     local_sum += (f_left + f_right) * 0.5 * h;

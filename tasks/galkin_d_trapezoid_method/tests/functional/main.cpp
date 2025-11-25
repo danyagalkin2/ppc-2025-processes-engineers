@@ -15,7 +15,6 @@
 
 constexpr double kPi = 3.14159265358979323846;
 
-
 namespace galkin_d_trapezoid_method {
 
 class GalkinDTrapezoidFuncTests : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
@@ -26,37 +25,30 @@ class GalkinDTrapezoidFuncTests : public ppc::util::BaseRunFuncTests<InType, Out
 
  protected:
   void SetUp() override {
-    TestType params = std::get<static_cast<std::size_t>(
-        ppc::util::GTestParamIndex::kTestParams)>(GetParam());
+    TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
     const int case_id = std::get<0>(params);
-    switch (case_id){
-      case 0:{
-        input_data_ = {0.0, 1.0, 1000,
-                       static_cast<int>(FunctionId::Linear)};
+    switch (case_id) {
+      case 0: {
+        input_data_ = {0.0, 1.0, 1000, static_cast<int>(FunctionId::Linear)};
         break;
       }
-      case 1:{
-        input_data_ = {0.0, 2.0, 2000,
-                        static_cast<int>(FunctionId::Quadratic)};
-          break;
-      }
-      case 2:{
-        input_data_ = {0.0, kPi, 3000,
-                       static_cast<int>(FunctionId::Sin)};
+      case 1: {
+        input_data_ = {0.0, 2.0, 2000, static_cast<int>(FunctionId::Quadratic)};
         break;
       }
-      case 3:{
-        input_data_ = {-1.0, 1.0, 1500,
-                       static_cast<int>(FunctionId::Linear)};
+      case 2: {
+        input_data_ = {0.0, kPi, 3000, static_cast<int>(FunctionId::Sin)};
         break;
       }
-      default:{
-        input_data_ = {0.0, 1.0, 1000,
-                       static_cast<int>(FunctionId::Linear)};
+      case 3: {
+        input_data_ = {-1.0, 1.0, 1500, static_cast<int>(FunctionId::Linear)};
+        break;
+      }
+      default: {
+        input_data_ = {0.0, 1.0, 1000, static_cast<int>(FunctionId::Linear)};
         break;
       }
     }
-
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
@@ -80,30 +72,23 @@ TEST_P(GalkinDTrapezoidFuncTests, ComputesIntegralWithReasonableAccuracy) {
   ExecuteTest(GetParam());
 }
 
-const std::array<TestType, 4> kFunctionalParams = {
-    std::make_tuple(0, "linear_0_1"),
-    std::make_tuple(1, "quadratic_0_2"),
-    std::make_tuple(2, "sin_0_pi"),
-    std::make_tuple(3, "linear_m1_1")};
+const std::array<TestType, 4> kFunctionalParams = {std::make_tuple(0, "linear_0_1"),
+                                                   std::make_tuple(1, "quadratic_0_2"), std::make_tuple(2, "sin_0_pi"),
+                                                   std::make_tuple(3, "linear_m1_1")};
 
-const auto kTaskMatrix = std::tuple_cat(
-    ppc::util::AddFuncTask<GalkinDTrapezoidMethodMPI, InType>(
-        kFunctionalParams, PPC_SETTINGS_galkin_d_trapezoid_method),
-    ppc::util::AddFuncTask<GalkinDTrapezoidMethodSEQ, InType>(
-        kFunctionalParams, PPC_SETTINGS_galkin_d_trapezoid_method));
+const auto kTaskMatrix = std::tuple_cat(ppc::util::AddFuncTask<GalkinDTrapezoidMethodMPI, InType>(
+                                            kFunctionalParams, PPC_SETTINGS_galkin_d_trapezoid_method),
+                                        ppc::util::AddFuncTask<GalkinDTrapezoidMethodSEQ, InType>(
+                                            kFunctionalParams, PPC_SETTINGS_galkin_d_trapezoid_method));
 
 const auto kParameterizedValues = ppc::util::ExpandToValues(kTaskMatrix);
 
-const auto kFunctionalTestName =
-    GalkinDTrapezoidFuncTests::PrintFuncTestName<GalkinDTrapezoidFuncTests>;
+const auto kFunctionalTestName = GalkinDTrapezoidFuncTests::PrintFuncTestName<GalkinDTrapezoidFuncTests>;
 
-INSTANTIATE_TEST_SUITE_P(TrapezoidIntegralSuite,
-                         GalkinDTrapezoidFuncTests,
-                         kParameterizedValues,
-                         kFunctionalTestName);
+INSTANTIATE_TEST_SUITE_P(TrapezoidIntegralSuite, GalkinDTrapezoidFuncTests, kParameterizedValues, kFunctionalTestName);
 
 template <typename TaskType>
-void ExpectFullPipelineSuccess(const InType& in, double eps = 1e-4) {
+void ExpectFullPipelineSuccess(const InType &in, double eps = 1e-4) {
   auto task = std::make_shared<TaskType>(in);
   ASSERT_TRUE(task->Validation());
   ASSERT_TRUE(task->PreProcessing());
@@ -115,12 +100,11 @@ void ExpectFullPipelineSuccess(const InType& in, double eps = 1e-4) {
 }
 
 TEST(GalkinDTrapezoidStandalone, SeqPipelineStandardCases) {
-  const std::array<InType, 3> kInputs = {
-      InType{0.0, 1.0, 1000, static_cast<int>(FunctionId::Linear)},
-      InType{0.0, 2.0, 2000, static_cast<int>(FunctionId::Quadratic)},
-      InType{0.0, kPi, 4000, static_cast<int>(FunctionId::Sin)}};
+  const std::array<InType, 3> kInputs = {InType{0.0, 1.0, 1000, static_cast<int>(FunctionId::Linear)},
+                                         InType{0.0, 2.0, 2000, static_cast<int>(FunctionId::Quadratic)},
+                                         InType{0.0, kPi, 4000, static_cast<int>(FunctionId::Sin)}};
 
-  for (const auto& in : kInputs) {
+  for (const auto &in : kInputs) {
     ExpectFullPipelineSuccess<GalkinDTrapezoidMethodSEQ>(in);
   }
 }
@@ -129,12 +113,11 @@ TEST(GalkinDTrapezoidStandalone, MpiPipelineStandardCases) {
   if (!ppc::util::IsUnderMpirun()) {
     GTEST_SKIP();
   }
-  const std::array<InType, 3> kInputs = {
-      InType{0.0, 1.0, 1000, static_cast<int>(FunctionId::Linear)},
-      InType{0.0, 2.0, 2000, static_cast<int>(FunctionId::Quadratic)},
-      InType{0.0, kPi, 4000, static_cast<int>(FunctionId::Sin)}};
+  const std::array<InType, 3> kInputs = {InType{0.0, 1.0, 1000, static_cast<int>(FunctionId::Linear)},
+                                         InType{0.0, 2.0, 2000, static_cast<int>(FunctionId::Quadratic)},
+                                         InType{0.0, kPi, 4000, static_cast<int>(FunctionId::Sin)}};
 
-  for (const auto& in : kInputs) {
+  for (const auto &in : kInputs) {
     ExpectFullPipelineSuccess<GalkinDTrapezoidMethodMPI>(in);
   }
 }
@@ -203,10 +186,7 @@ TEST(GalkinDTrapezoidValidation, AcceptsValidInputMpi) {
 }
 
 template <typename TaskType>
-void RunTaskTwice(TaskType& task,
-                  const InType& first,
-                  const InType& second,
-                  double eps = 1e-4) {
+void RunTaskTwice(TaskType &task, const InType &first, const InType &second, double eps = 1e-4) {
   task.GetInput() = first;
   task.GetOutput() = 0.0;
   ASSERT_TRUE(task.Validation());
