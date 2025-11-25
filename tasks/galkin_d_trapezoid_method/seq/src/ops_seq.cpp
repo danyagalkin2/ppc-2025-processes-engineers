@@ -1,9 +1,6 @@
 #include "galkin_d_trapezoid_method/seq/include/ops_seq.hpp"
 
-#include <cmath>
-
 #include "galkin_d_trapezoid_method/common/include/common.hpp"
-#include "util/include/util.hpp"
 
 namespace galkin_d_trapezoid_method {
 
@@ -44,7 +41,7 @@ bool GalkinDTrapezoidMethodSEQ::RunImpl() {
 
   double sum = 0.0;
   for (int i = 1; i < n; ++i) {
-    const double x = a + h * static_cast<double>(i);
+    const double x = a + (h * static_cast<double>(i));
     sum += Function(x, func_id);
   }
 

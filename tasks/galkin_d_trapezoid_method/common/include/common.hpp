@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <cstdint>
 #include <tuple>
 
 #include "task/include/task.hpp"
@@ -18,19 +19,19 @@ using OutType = double;
 using TestType = std::tuple<int, std::string>;
 using BaseTask = ppc::task::Task<InType, OutType>;
 
-enum class FunctionId : int {
-  Linear = 0,     // f(x) = x
-  Quadratic = 1,  // f(x) = x^2
-  Sin = 2         // f(x) = sin(x)
+enum class FunctionId : std::uint8_t {
+  kLinear = 0,     // f(x) = x
+  kQuadratic = 1,  // f(x) = x^2
+  kSin = 2         // f(x) = sin(x)
 };
 
 inline double Function(double x, int func_id) {
   switch (static_cast<FunctionId>(func_id)) {
-    case FunctionId::Linear:
+    case FunctionId::kLinear:
       return x;  // f(x) = x
-    case FunctionId::Quadratic:
+    case FunctionId::kQuadratic:
       return x * x;  // f(x) = x^2
-    case FunctionId::Sin:
+    case FunctionId::kSin:
       return std::sin(x);  // f(x) = sin(x)
     default:
       return 0.0;
@@ -42,11 +43,11 @@ inline double GetExactIntegral(const InType &in) {
   const double b = in.b;
 
   switch (static_cast<FunctionId>(in.func_id)) {
-    case FunctionId::Linear:
+    case FunctionId::kLinear:
       return (b * b - a * a) / 2.0;
-    case FunctionId::Quadratic:
+    case FunctionId::kQuadratic:
       return (b * b * b - a * a * a) / 3.0;
-    case FunctionId::Sin:
+    case FunctionId::kSin:
       return std::cos(a) - std::cos(b);
     default:
       return 0.0;

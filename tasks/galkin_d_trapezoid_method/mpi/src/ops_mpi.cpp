@@ -2,10 +2,9 @@
 
 #include <mpi.h>
 
-#include <cmath>
+#include <algorithm>
 
 #include "galkin_d_trapezoid_method/common/include/common.hpp"
-#include "util/include/util.hpp"
 
 namespace galkin_d_trapezoid_method {
 

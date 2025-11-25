@@ -2,8 +2,8 @@
 
 #include <array>
 #include <cmath>
-#include <cstddef>
 #include <memory>
+#include <numbers>
 #include <string>
 #include <tuple>
 
@@ -11,9 +11,8 @@
 #include "galkin_d_trapezoid_method/mpi/include/ops_mpi.hpp"
 #include "galkin_d_trapezoid_method/seq/include/ops_seq.hpp"
 #include "util/include/func_test_util.hpp"
-#include "util/include/util.hpp"
 
-constexpr double kPi = 3.14159265358979323846;
+constexpr double kPi = std::numbers::pi;
 
 namespace galkin_d_trapezoid_method {
 
@@ -29,23 +28,23 @@ class GalkinDTrapezoidFuncTests : public ppc::util::BaseRunFuncTests<InType, Out
     const int case_id = std::get<0>(params);
     switch (case_id) {
       case 0: {
-        input_data_ = {0.0, 1.0, 1000, static_cast<int>(FunctionId::Linear)};
+        input_data_ = {.a = 0.0, .b = 1.0, .n = 1000, .func_id = static_cast<int>(FunctionId::kLinear)};
         break;
       }
       case 1: {
-        input_data_ = {0.0, 2.0, 2000, static_cast<int>(FunctionId::Quadratic)};
+        input_data_ = {.a = 0.0, .b = 2.0, .n = 2000, .func_id = static_cast<int>(FunctionId::kQuadratic)};
         break;
       }
       case 2: {
-        input_data_ = {0.0, kPi, 3000, static_cast<int>(FunctionId::Sin)};
+        input_data_ = {.a = 0.0, .b = kPi, .n = 3000, .func_id = static_cast<int>(FunctionId::kSin)};
         break;
       }
       case 3: {
-        input_data_ = {-1.0, 1.0, 1500, static_cast<int>(FunctionId::Linear)};
+        input_data_ = {.a = -1.0, .b = 1.0, .n = 1500, .func_id = static_cast<int>(FunctionId::kLinear)};
         break;
       }
       default: {
-        input_data_ = {0.0, 1.0, 1000, static_cast<int>(FunctionId::Linear)};
+        input_data_ = {.a = 0.0, .b = 1.0, .n = 1000, .func_id = static_cast<int>(FunctionId::kLinear)};
         break;
       }
     }
@@ -63,7 +62,7 @@ class GalkinDTrapezoidFuncTests : public ppc::util::BaseRunFuncTests<InType, Out
   }
 
  private:
-  InType input_data_{0.0, 1.0, 10, static_cast<int>(FunctionId::Linear)};
+  InType input_data_{.a = 0.0, .b = 1.0, .n = 10, .func_id = static_cast<int>(FunctionId::kLinear)};
 };
 
 namespace {
@@ -100,9 +99,11 @@ void ExpectFullPipelineSuccess(const InType &in, double eps = 1e-4) {
 }
 
 TEST(GalkinDTrapezoidStandalone, SeqPipelineStandardCases) {
-  const std::array<InType, 3> kInputs = {InType{0.0, 1.0, 1000, static_cast<int>(FunctionId::Linear)},
-                                         InType{0.0, 2.0, 2000, static_cast<int>(FunctionId::Quadratic)},
-                                         InType{0.0, kPi, 4000, static_cast<int>(FunctionId::Sin)}};
+  const std::array<InType, 3> kInputs = {
+      InType{.a = 0.0, .b = 1.0, .n = 1000, .func_id = static_cast<int>(FunctionId::kLinear)},
+      InType{.a = 0.0, .b = 2.0, .n = 2000, .func_id = static_cast<int>(FunctionId::kQuadratic)},
+      InType{.a = 0.0, .b = kPi, .n = 4000, .func_id = static_cast<int>(FunctionId::kSin)},
+  };
 
   for (const auto &in : kInputs) {
     ExpectFullPipelineSuccess<GalkinDTrapezoidMethodSEQ>(in);
@@ -113,9 +114,11 @@ TEST(GalkinDTrapezoidStandalone, MpiPipelineStandardCases) {
   if (!ppc::util::IsUnderMpirun()) {
     GTEST_SKIP();
   }
-  const std::array<InType, 3> kInputs = {InType{0.0, 1.0, 1000, static_cast<int>(FunctionId::Linear)},
-                                         InType{0.0, 2.0, 2000, static_cast<int>(FunctionId::Quadratic)},
-                                         InType{0.0, kPi, 4000, static_cast<int>(FunctionId::Sin)}};
+  const std::array<InType, 3> kInputs = {
+      InType{.a = 0.0, .b = 1.0, .n = 1000, .func_id = static_cast<int>(FunctionId::kLinear)},
+      InType{.a = 0.0, .b = 2.0, .n = 2000, .func_id = static_cast<int>(FunctionId::kQuadratic)},
+      InType{.a = 0.0, .b = kPi, .n = 4000, .func_id = static_cast<int>(FunctionId::kSin)},
+  };
 
   for (const auto &in : kInputs) {
     ExpectFullPipelineSuccess<GalkinDTrapezoidMethodMPI>(in);
@@ -123,7 +126,7 @@ TEST(GalkinDTrapezoidStandalone, MpiPipelineStandardCases) {
 }
 
 TEST(GalkinDTrapezoidValidation, RejectsNonPositiveNSeq) {
-  InType in{0.0, 1.0, 0, static_cast<int>(FunctionId::Linear)};
+  InType in{.a = 0.0, .b = 1.0, .n = 0, .func_id = static_cast<int>(FunctionId::kLinear)};
   GalkinDTrapezoidMethodSEQ task(in);
   EXPECT_FALSE(task.Validation());
   task.PreProcessing();
@@ -135,7 +138,7 @@ TEST(GalkinDTrapezoidValidation, RejectsNonPositiveNMpi) {
   if (!ppc::util::IsUnderMpirun()) {
     GTEST_SKIP();
   }
-  InType in{0.0, 1.0, 0, static_cast<int>(FunctionId::Linear)};
+  InType in{.a = 0.0, .b = 1.0, .n = 0, .func_id = static_cast<int>(FunctionId::kLinear)};
   GalkinDTrapezoidMethodMPI task(in);
   EXPECT_FALSE(task.Validation());
   task.PreProcessing();
@@ -144,7 +147,7 @@ TEST(GalkinDTrapezoidValidation, RejectsNonPositiveNMpi) {
 }
 
 TEST(GalkinDTrapezoidValidation, RejectsInvalidIntervalSeq) {
-  InType in{1.0, 0.0, 100, static_cast<int>(FunctionId::Linear)};
+  InType in{.a = 1.0, .b = 0.0, .n = 100, .func_id = static_cast<int>(FunctionId::kLinear)};
   GalkinDTrapezoidMethodSEQ task(in);
   EXPECT_FALSE(task.Validation());
 }
@@ -153,13 +156,13 @@ TEST(GalkinDTrapezoidValidation, RejectsInvalidIntervalMpi) {
   if (!ppc::util::IsUnderMpirun()) {
     GTEST_SKIP();
   }
-  InType in{1.0, 0.0, 100, static_cast<int>(FunctionId::Linear)};
+  InType in{.a = 1.0, .b = 0.0, .n = 100, .func_id = static_cast<int>(FunctionId::kLinear)};
   GalkinDTrapezoidMethodMPI task(in);
   EXPECT_FALSE(task.Validation());
 }
 
 TEST(GalkinDTrapezoidValidation, AcceptsValidInputSeq) {
-  InType in{0.0, 1.0, 1000, static_cast<int>(FunctionId::Linear)};
+  InType in{.a = 0.0, .b = 1.0, .n = 1000, .func_id = static_cast<int>(FunctionId::kLinear)};
   GalkinDTrapezoidMethodSEQ task(in);
   EXPECT_TRUE(task.Validation());
   EXPECT_TRUE(task.PreProcessing());
@@ -174,7 +177,7 @@ TEST(GalkinDTrapezoidValidation, AcceptsValidInputMpi) {
   if (!ppc::util::IsUnderMpirun()) {
     GTEST_SKIP();
   }
-  InType in{0.0, 1.0, 1000, static_cast<int>(FunctionId::Linear)};
+  InType in{.a = 0.0, .b = 1.0, .n = 1000, .func_id = static_cast<int>(FunctionId::kLinear)};
   GalkinDTrapezoidMethodMPI task(in);
   EXPECT_TRUE(task.Validation());
   EXPECT_TRUE(task.PreProcessing());
@@ -205,8 +208,8 @@ void RunTaskTwice(TaskType &task, const InType &first, const InType &second, dou
 }
 
 TEST(GalkinDTrapezoidPipeline, SeqTaskCanBeReusedAcrossRuns) {
-  InType first{0.0, 1.0, 1000, static_cast<int>(FunctionId::Linear)};
-  InType second{0.0, kPi, 3000, static_cast<int>(FunctionId::Sin)};
+  InType first{.a = 0.0, .b = 1.0, .n = 1000, .func_id = static_cast<int>(FunctionId::kLinear)};
+  InType second{.a = 0.0, .b = kPi, .n = 3000, .func_id = static_cast<int>(FunctionId::kSin)};
 
   GalkinDTrapezoidMethodSEQ task(first);
   RunTaskTwice(task, first, second);
@@ -217,8 +220,8 @@ TEST(GalkinDTrapezoidPipeline, MpiTaskCanBeReusedAcrossRuns) {
     GTEST_SKIP();
   }
 
-  InType first{0.0, 1.0, 1000, static_cast<int>(FunctionId::Linear)};
-  InType second{0.0, kPi, 3000, static_cast<int>(FunctionId::Sin)};
+  InType first{.a = 0.0, .b = 1.0, .n = 1000, .func_id = static_cast<int>(FunctionId::kLinear)};
+  InType second{.a = 0.0, .b = kPi, .n = 3000, .func_id = static_cast<int>(FunctionId::kSin)};
 
   GalkinDTrapezoidMethodMPI task(first);
   RunTaskTwice(task, first, second);
