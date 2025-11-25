@@ -30,7 +30,8 @@ bool GalkinDTrapezoidMethodMPI::RunImpl() {
   double b = in.b;
   int n = in.n;
 
-  int rank, size;
+  int rank = 0;
+  int size = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
@@ -39,14 +40,14 @@ bool GalkinDTrapezoidMethodMPI::RunImpl() {
 
   int local_n = base + (rank < rem ? 1 : 0);
 
-  int start_i = rank * base + std::min(rank, rem);
+  int start_i = (rank * base) + std::min(rank, rem);
   int end_i = start_i + local_n;
   double h = (b - a) / static_cast<double>(n);
 
   double local_sum = 0.0;
   for (int i = start_i; i < end_i; ++i) {
-    double x_left = a + i * h;
-    double x_right = a + (i + 1) * h;
+    double x_left = a + (static_cast<double>(i) * h);
+    double x_right = a + (static_cast<double>(i + 1) * h);
 
     double f_left = Function(x_left, in.func_id);
     double f_right = Function(x_right, in.func_id);

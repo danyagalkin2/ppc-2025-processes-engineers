@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <string>
 #include <tuple>
 
 #include "task/include/task.hpp"

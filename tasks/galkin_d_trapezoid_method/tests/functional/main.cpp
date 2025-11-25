@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <memory>
 #include <numbers>
 #include <string>
@@ -11,6 +12,7 @@
 #include "galkin_d_trapezoid_method/mpi/include/ops_mpi.hpp"
 #include "galkin_d_trapezoid_method/seq/include/ops_seq.hpp"
 #include "util/include/func_test_util.hpp"
+#include "util/include/util.hpp"
 
 constexpr double kPi = std::numbers::pi;
 
@@ -99,13 +101,13 @@ void ExpectFullPipelineSuccess(const InType &in, double eps = 1e-4) {
 }
 
 TEST(GalkinDTrapezoidStandalone, SeqPipelineStandardCases) {
-  const std::array<InType, 3> kInputs = {
+  const std::array<InType, 3> k_inputs = {
       InType{.a = 0.0, .b = 1.0, .n = 1000, .func_id = static_cast<int>(FunctionId::kLinear)},
       InType{.a = 0.0, .b = 2.0, .n = 2000, .func_id = static_cast<int>(FunctionId::kQuadratic)},
       InType{.a = 0.0, .b = kPi, .n = 4000, .func_id = static_cast<int>(FunctionId::kSin)},
   };
 
-  for (const auto &in : kInputs) {
+  for (const auto &in : k_inputs) {
     ExpectFullPipelineSuccess<GalkinDTrapezoidMethodSEQ>(in);
   }
 }
@@ -114,13 +116,13 @@ TEST(GalkinDTrapezoidStandalone, MpiPipelineStandardCases) {
   if (!ppc::util::IsUnderMpirun()) {
     GTEST_SKIP();
   }
-  const std::array<InType, 3> kInputs = {
+  const std::array<InType, 3> k_inputs = {
       InType{.a = 0.0, .b = 1.0, .n = 1000, .func_id = static_cast<int>(FunctionId::kLinear)},
       InType{.a = 0.0, .b = 2.0, .n = 2000, .func_id = static_cast<int>(FunctionId::kQuadratic)},
       InType{.a = 0.0, .b = kPi, .n = 4000, .func_id = static_cast<int>(FunctionId::kSin)},
   };
 
-  for (const auto &in : kInputs) {
+  for (const auto &in : k_inputs) {
     ExpectFullPipelineSuccess<GalkinDTrapezoidMethodMPI>(in);
   }
 }
@@ -225,6 +227,18 @@ TEST(GalkinDTrapezoidPipeline, MpiTaskCanBeReusedAcrossRuns) {
 
   GalkinDTrapezoidMethodMPI task(first);
   RunTaskTwice(task, first, second);
+}
+
+TEST(GalkinDTrapezoidCommon, FunctionReturnsZeroOnUnknownId) {
+  const double x = 1.234;
+  const double value = Function(x, 42);
+  EXPECT_DOUBLE_EQ(value, 0.0);
+}
+
+TEST(GalkinDTrapezoidCommon, GetExactIntegralReturnsZeroOnUnknownId) {
+  InType in{.a = 0.0, .b = 1.0, .n = 10, .func_id = 42};
+  const double exact = GetExactIntegral(in);
+  EXPECT_DOUBLE_EQ(exact, 0.0);
 }
 
 }  // namespace
