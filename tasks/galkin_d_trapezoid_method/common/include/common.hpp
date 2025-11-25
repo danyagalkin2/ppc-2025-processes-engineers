@@ -28,8 +28,7 @@ enum class FunctionId : std::uint8_t {
 };
 
 inline bool IsValidFunctionId(int func_id) {
-  return func_id >= static_cast<int>(FunctionId::kLinear) &&
-         func_id <= static_cast<int>(FunctionId::kSin);
+  return func_id >= static_cast<int>(FunctionId::kLinear) && func_id <= static_cast<int>(FunctionId::kSin);
 }
 
 inline double Function(double x, int func_id) {
