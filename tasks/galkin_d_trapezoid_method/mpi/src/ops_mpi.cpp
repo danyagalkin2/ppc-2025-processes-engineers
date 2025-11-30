@@ -25,15 +25,27 @@ bool GalkinDTrapezoidMethodMPI::PreProcessingImpl() {
 }
 
 bool GalkinDTrapezoidMethodMPI::RunImpl() {
-  const auto &in = GetInput();
-  double a = in.a;
-  double b = in.b;
-  int n = in.n;
-
   int rank = 0;
   int size = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+  InType in = (rank == 0) ? GetInput() : InType{};
+
+  MPI_Bcast(&in, sizeof(InType), MPI_BYTE, 0, MPI_COMM_WORLD);
+
+  GetInput() = in;
+
+  double a = in.a;
+  double b = in.b;
+  int n = in.n;
+
+  if (n <= 0 || !(a < b)) {
+    if (rank == 0) {
+      GetOutput() = 0.0;
+    }
+    return true;
+  }
 
   int base = n / size;
   int rem = n % size;
