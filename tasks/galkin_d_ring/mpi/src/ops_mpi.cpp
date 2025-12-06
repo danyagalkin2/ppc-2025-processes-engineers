@@ -14,14 +14,7 @@ GalkinDRingMPI::GalkinDRingMPI(const InType &in) {
 
 bool GalkinDRingMPI::ValidationImpl() {
   const auto &in = GetInput();
-  int size = 1;
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-  const bool src_in_range = (0 <= in.src) && (in.src < size);
-  const bool dest_in_range = (0 <= in.dest) && (in.dest < size);
-  const bool count_ok = (in.count > 0);
-
-  return src_in_range && dest_in_range && count_ok;
+  return in.count > 0;
 }
 
 bool GalkinDRingMPI::PreProcessingImpl() {
