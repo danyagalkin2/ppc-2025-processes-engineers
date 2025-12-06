@@ -14,12 +14,13 @@ using OutType = galkin_d_ring::OutType;
 class GalkinDRingPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
  protected:
   void SetUp() override {
-    int world_size = 1;
-    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+    int size = 1;
+    if (ppc::util::IsUnderMpirun()) {
+      MPI_Comm_size(MPI_COMM_WORLD, &size);
+    }
 
     constexpr int kCount = 10'000'000;
-
-    const int dest = (world_size > 1) ? world_size / 2 : 0;
+    const int dest = (size > 1) ? size / 2 : 0;
 
     input_data_ = InType{
         .src = 0,

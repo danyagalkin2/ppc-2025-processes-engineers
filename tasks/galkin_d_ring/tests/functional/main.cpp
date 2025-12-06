@@ -31,24 +31,27 @@ class GalkinDRingFuncTests : public ppc::util::BaseRunFuncTests<InType, OutType,
     const auto params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
     const int case_id = std::get<0>(params);
 
-    int world_size = 1;
-    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+    int size = 1;
+    if (ppc::util::IsUnderMpirun()) {
+      MPI_Comm_size(MPI_COMM_WORLD, &size);
+    }
 
-    if (world_size < 1) {
-      world_size = 1;
+    if (size < 1) {
+      size = 1;
     }
 
     switch (case_id) {
       case 0: {
         input_data_ = InType{
             .src = 0,
-            .dest = world_size - 1,
+            .dest = size - 1,
             .count = 16,
         };
         break;
       }
+
       case 1: {
-        const int dest = (world_size > 1) ? 1 : 0;
+        const int dest = (size > 1) ? 1 : 0;
         input_data_ = InType{
             .src = 0,
             .dest = dest,
@@ -57,7 +60,7 @@ class GalkinDRingFuncTests : public ppc::util::BaseRunFuncTests<InType, OutType,
         break;
       }
       case 2: {
-        const int src = world_size / 2;
+        const int src = size / 2;
         input_data_ = InType{
             .src = src,
             .dest = 0,
@@ -76,7 +79,7 @@ class GalkinDRingFuncTests : public ppc::util::BaseRunFuncTests<InType, OutType,
       default: {
         input_data_ = InType{
             .src = 0,
-            .dest = world_size - 1,
+            .dest = size - 1,
             .count = 4,
         };
         break;
@@ -172,10 +175,12 @@ TEST(GalkinDRingValidation, RejectsInvalidSrcMpi) {
 }
 
 TEST(GalkinDRingValidation, RejectsInvalidDestSeq) {
-  int world_size = 1;
-  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+  int size = 1;
+  if (ppc::util::IsUnderMpirun()) {
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+  }
 
-  InType in{.src = 0, .dest = world_size, .count = 10};
+  InType in{.src = 0, .dest = size, .count = 10};
   GalkinDRingSEQ task(in);
   EXPECT_FALSE(task.Validation());
 }
@@ -185,19 +190,21 @@ TEST(GalkinDRingValidation, RejectsInvalidDestMpi) {
     GTEST_SKIP();
   }
 
-  int world_size = 1;
-  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+  int size = 1;
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-  InType in{.src = 0, .dest = world_size, .count = 10};
+  InType in{.src = 0, .dest = size, .count = 10};
   GalkinDRingMPI task(in);
   EXPECT_FALSE(task.Validation());
 }
 
 TEST(GalkinDRingValidation, AcceptsValidInputSeq) {
-  int world_size = 1;
-  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+  int size = 1;
+  if (ppc::util::IsUnderMpirun()) {
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+  }
 
-  const int dest = (world_size > 1) ? 1 : 0;
+  const int dest = (size > 1) ? 1 : 0;
 
   InType in{.src = 0, .dest = dest, .count = 32};
   GalkinDRingSEQ task(in);
@@ -214,10 +221,10 @@ TEST(GalkinDRingValidation, AcceptsValidInputMpi) {
     GTEST_SKIP();
   }
 
-  int world_size = 1;
-  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+  int size = 1;
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-  const int dest = (world_size > 1) ? 1 : 0;
+  const int dest = (size > 1) ? 1 : 0;
 
   InType in{.src = 0, .dest = dest, .count = 32};
   GalkinDRingMPI task(in);
