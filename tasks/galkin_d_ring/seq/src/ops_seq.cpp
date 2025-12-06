@@ -18,7 +18,6 @@ bool GalkinDRingSEQ::PreProcessingImpl() {
 }
 
 bool GalkinDRingSEQ::RunImpl() {
-
   const auto &in = GetInput();
 
   if (in.count <= 0 || in.src < 0 || in.dest < 0) {
