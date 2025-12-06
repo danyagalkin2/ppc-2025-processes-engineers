@@ -9,8 +9,7 @@ GalkinDRingSEQ::GalkinDRingSEQ(const InType &in) {
 }
 
 bool GalkinDRingSEQ::ValidationImpl() {
-  const auto &in = GetInput();
-  return (in.count > 0) && (in.src >= 0) && (in.dest >= 0);
+  return true;
 }
 
 bool GalkinDRingSEQ::PreProcessingImpl() {
@@ -19,7 +18,8 @@ bool GalkinDRingSEQ::PreProcessingImpl() {
 }
 
 bool GalkinDRingSEQ::RunImpl() {
-  const auto in = GetInput();
+
+  const auto &in = GetInput();
 
   if (in.count <= 0 || in.src < 0 || in.dest < 0) {
     GetOutput() = 0;
