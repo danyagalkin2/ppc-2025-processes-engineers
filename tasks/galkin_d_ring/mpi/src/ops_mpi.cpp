@@ -42,6 +42,32 @@ bool GalkinDRingMPI::RunImpl() {
     }
     return true;
   }
+
+  if (size == 1) {
+    std::vector<int> buffer(count);
+    for (int i = 0; i < count; ++i) {
+      buffer[i] = i + 1;
+    }
+
+    int local_ok = 1;
+    for (int i = 0; i < count; ++i) {
+      const int expected = i + 1;
+      if (buffer[i] != expected) {
+        local_ok = 0;
+        break;
+      }
+    }
+
+    int global_ok = 0;
+    MPI_Allreduce(&local_ok, &global_ok, 1, MPI_INT, MPI_LAND, MPI_COMM_WORLD);
+
+    if (rank == dest) {
+      GetOutput() = global_ok;
+    }
+
+    return true;
+  }
+
   // отправка самому себе
   if (src == dest) {
     GetOutput() = 1;

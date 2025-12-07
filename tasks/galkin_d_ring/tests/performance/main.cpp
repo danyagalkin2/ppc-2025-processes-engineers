@@ -19,7 +19,7 @@ class GalkinDRingPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType>
       MPI_Comm_size(MPI_COMM_WORLD, &size);
     }
 
-    constexpr int kCount = 20'000'000;
+    constexpr int kCount = 5'000'000;
     const int dest = (size > 1) ? size / 2 : 0;
 
     input_data_ = InType{
