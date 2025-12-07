@@ -28,11 +28,6 @@ bool GalkinDRingSEQ::PreProcessingImpl() {
 bool GalkinDRingSEQ::RunImpl() {
   const auto &in = GetInput();
 
-  if (!Validation()) {
-    GetOutput() = 0;
-    return true;
-  }
-
   const int count = in.count;
 
   std::vector<int> buffer(count);
