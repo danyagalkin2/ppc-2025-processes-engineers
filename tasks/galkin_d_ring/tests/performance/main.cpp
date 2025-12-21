@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <mpi.h>
+#include "util/include/util.hpp"
 
 #include "galkin_d_ring/common/include/common.hpp"
 #include "galkin_d_ring/mpi/include/ops_mpi.hpp"

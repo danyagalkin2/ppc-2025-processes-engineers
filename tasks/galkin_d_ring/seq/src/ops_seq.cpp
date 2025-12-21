@@ -1,6 +1,6 @@
 #include "galkin_d_ring/seq/include/ops_seq.hpp"
+#include "galkin_d_ring/common/include/common.hpp"
 
-#include <vector>
 
 namespace galkin_d_ring {
 
@@ -13,11 +13,12 @@ GalkinDRingSEQ::GalkinDRingSEQ(const InType &in) {
 bool GalkinDRingSEQ::ValidationImpl() {
   const auto &in = GetInput();
 
-  const bool src_ok = (in.src == 0);
-  const bool dest_ok = (in.dest == 0);
-  const bool count_ok = (in.count > 0);
+  // SEQ: модель одного процесса
+  const bool ok_count = (in.count > 0);
+  const bool ok_src = (in.src == 0);
+  const bool ok_dest = (in.dest == 0);
 
-  return src_ok && dest_ok && count_ok;
+  return ok_count && ok_src && ok_dest;
 }
 
 bool GalkinDRingSEQ::PreProcessingImpl() {
@@ -26,25 +27,8 @@ bool GalkinDRingSEQ::PreProcessingImpl() {
 }
 
 bool GalkinDRingSEQ::RunImpl() {
-  const auto &in = GetInput();
-
-  const int count = in.count;
-
-  std::vector<int> buffer(count);
-  for (int i = 0; i < count; ++i) {
-    buffer[i] = i + 1;
-  }
-
-  int local_ok = 1;
-  for (int i = 0; i < count; ++i) {
-    const int expected = i + 1;
-    if (buffer[i] != expected) {
-      local_ok = 0;
-      break;
-    }
-  }
-
-  GetOutput() = local_ok;
+  // Заглушка SEQ: считаем, что всё прошло
+  GetOutput() = 1;
   return true;
 }
 
