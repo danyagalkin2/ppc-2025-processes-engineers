@@ -1,9 +1,9 @@
 #include <gtest/gtest.h>
 #include <mpi.h>
-#include <cstddef>
-#include <algorithm>
 
+#include <algorithm>
 #include <array>
+#include <cstddef>
 #include <string>
 #include <tuple>
 

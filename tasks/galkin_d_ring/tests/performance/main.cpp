@@ -1,11 +1,11 @@
 #include <gtest/gtest.h>
 #include <mpi.h>
-#include "util/include/util.hpp"
 
 #include "galkin_d_ring/common/include/common.hpp"
 #include "galkin_d_ring/mpi/include/ops_mpi.hpp"
 #include "galkin_d_ring/seq/include/ops_seq.hpp"
 #include "util/include/perf_test_util.hpp"
+#include "util/include/util.hpp"
 
 namespace galkin_d_ring {
 

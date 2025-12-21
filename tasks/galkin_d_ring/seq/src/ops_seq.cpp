@@ -1,6 +1,6 @@
 #include "galkin_d_ring/seq/include/ops_seq.hpp"
-#include "galkin_d_ring/common/include/common.hpp"
 
+#include "galkin_d_ring/common/include/common.hpp"
 
 namespace galkin_d_ring {
 

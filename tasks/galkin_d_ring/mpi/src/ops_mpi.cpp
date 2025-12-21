@@ -1,8 +1,8 @@
 #include "galkin_d_ring/mpi/include/ops_mpi.hpp"
-#include <algorithm>
 
 #include <mpi.h>
 
+#include <algorithm>
 #include <vector>
 
 namespace galkin_d_ring {
@@ -16,14 +16,22 @@ GalkinDRingMPI::GalkinDRingMPI(const InType &in) {
 bool GalkinDRingMPI::ValidationImpl() {
   const auto &in = GetInput();
 
-  if (in.count <= 0) return false;
+  if (in.count <= 0) {
+    return false;
+  }
 
   int size = 1;
   MPI_Comm_size(MPI_COMM_WORLD, &size);
-  if (size < 1) size = 1;
+  if (size < 1) {
+    size = 1;
+  }
 
-  if (in.src < 0 || in.src >= size) return false;
-  if (in.dest < 0 || in.dest >= size) return false;
+  if (in.src < 0 || in.src >= size) {
+    return false;
+  }
+  if (in.dest < 0 || in.dest >= size) {
+    return false;
+  }
 
   return true;
 }
@@ -40,7 +48,7 @@ bool GalkinDRingMPI::RunImpl() {
 
   // RAII: гарантированно освободим коммуникатор при любом выходе из функции
   struct CommGuard {
-    MPI_Comm* c;
+    MPI_Comm *c;
     ~CommGuard() {
       if (c && *c != MPI_COMM_NULL) {
         MPI_Comm_free(c);
@@ -75,7 +83,9 @@ bool GalkinDRingMPI::RunImpl() {
 
   // Источник инициализирует данные
   if (rank == src) {
-    for (int i = 0; i < count; ++i) buffer[i] = i + 1;
+    for (int i = 0; i < count; ++i) {
+      buffer[i] = i + 1;
+    }
   }
 
   // Сколько шагов по часовой стрелке от src до dest
@@ -110,7 +120,6 @@ bool GalkinDRingMPI::RunImpl() {
   GetOutput() = global_ok;
   return true;
 }
-
 
 bool GalkinDRingMPI::PostProcessingImpl() {
   return true;
