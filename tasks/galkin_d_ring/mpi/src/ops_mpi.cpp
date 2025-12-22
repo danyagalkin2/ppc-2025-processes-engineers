@@ -2,10 +2,71 @@
 
 #include <mpi.h>
 
-#include <algorithm>
 #include <vector>
 
 namespace galkin_d_ring {
+
+namespace {
+
+struct CommGuard {
+  MPI_Comm &comm;
+  explicit CommGuard(MPI_Comm &c) : comm(c) {}
+  ~CommGuard() {
+    if (comm != MPI_COMM_NULL) {
+      MPI_Comm_free(&comm);
+      comm = MPI_COMM_NULL;
+    }
+  }
+};
+
+bool ValidateParams(const InType &in, int size) {
+  return (in.count > 0) && (in.src >= 0) && (in.src < size) && (in.dest >= 0) && (in.dest < size);
+}
+
+std::vector<int> InitBuffer(int rank, int src, int count) {
+  std::vector<int> buffer(count, 0);
+  if (rank == src) {
+    for (int i = 0; i < count; ++i) {
+      buffer[i] = i + 1;
+    }
+  }
+  return buffer;
+}
+
+void RingTransfer(MPI_Comm comm, int rank, int size, int src, int dest, std::vector<int> &buffer) {
+  const int count = static_cast<int>(buffer.size());
+  const int steps = (dest - src + size) % size;
+
+  for (int step = 1; step <= steps; ++step) {
+    const int sender = (src + step - 1) % size;
+    const int receiver = (src + step) % size;
+
+    if (rank == sender) {
+      MPI_Send(buffer.data(), count, MPI_INT, receiver, 0, comm);
+    } else if (rank == receiver) {
+      MPI_Recv(buffer.data(), count, MPI_INT, sender, 0, comm, MPI_STATUS_IGNORE);
+    }
+  }
+}
+
+int CheckAndReduce(MPI_Comm comm, int rank, int dest, const std::vector<int> &buffer) {
+  int local_ok = 1;
+
+  if (rank == dest) {
+    for (int i = 0; i < static_cast<int>(buffer.size()); ++i) {
+      if (buffer[i] != i + 1) {
+        local_ok = 0;
+        break;
+      }
+    }
+  }
+
+  int global_ok = 0;
+  MPI_Allreduce(&local_ok, &global_ok, 1, MPI_INT, MPI_LAND, comm);
+  return global_ok;
+}
+
+}  // namespace
 
 GalkinDRingMPI::GalkinDRingMPI(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
@@ -42,20 +103,9 @@ bool GalkinDRingMPI::PreProcessingImpl() {
 }
 
 bool GalkinDRingMPI::RunImpl() {
-  // Создаём отдельный коммуникатор "виртуальной топологии" (без Cart/Graph)
   MPI_Comm comm = MPI_COMM_NULL;
   MPI_Comm_dup(MPI_COMM_WORLD, &comm);
-
-  // RAII: гарантированно освободим коммуникатор при любом выходе из функции
-  struct CommGuard {
-    MPI_Comm *c;
-    ~CommGuard() {
-      if (c && *c != MPI_COMM_NULL) {
-        MPI_Comm_free(c);
-        *c = MPI_COMM_NULL;
-      }
-    }
-  } guard{&comm};
+  CommGuard guard(comm);
 
   int rank = 0;
   int size = 1;
@@ -63,61 +113,21 @@ bool GalkinDRingMPI::RunImpl() {
   MPI_Comm_size(comm, &size);
 
   const auto in = GetInput();
-  const int src = in.src;
-  const int dest = in.dest;
-  const int count = in.count;
 
-  // Безопасность: одинаково на всех ранках
-  if (!(count > 0) || src < 0 || src >= size || dest < 0 || dest >= size) {
+  if (!ValidateParams(in, size)) {
     GetOutput() = 0;
     return true;
   }
 
-  // Отправка самому себе допустима
-  if (src == dest) {
+  if (in.src == in.dest) {
     GetOutput() = 1;
     return true;
   }
 
-  std::vector<int> buffer(count, 0);
+  auto buffer = InitBuffer(rank, in.src, in.count);
+  RingTransfer(comm, rank, size, in.src, in.dest, buffer);
 
-  // Источник инициализирует данные
-  if (rank == src) {
-    for (int i = 0; i < count; ++i) {
-      buffer[i] = i + 1;
-    }
-  }
-
-  // Сколько шагов по часовой стрелке от src до dest
-  const int steps = (dest - src + size) % size;
-
-  // Проходим цепочкой: sender -> receiver, строго по кольцу, шаг за шагом
-  for (int step = 1; step <= steps; ++step) {
-    const int sender = (src + step - 1) % size;
-    const int receiver = (src + step) % size;
-
-    if (rank == sender) {
-      MPI_Send(buffer.data(), count, MPI_INT, receiver, 0, comm);
-    } else if (rank == receiver) {
-      MPI_Recv(buffer.data(), count, MPI_INT, sender, 0, comm, MPI_STATUS_IGNORE);
-    }
-  }
-
-  // Проверяем на dest
-  int local_ok = 1;
-  if (rank == dest) {
-    for (int i = 0; i < count; ++i) {
-      if (buffer[i] != i + 1) {
-        local_ok = 0;
-        break;
-      }
-    }
-  }
-
-  int global_ok = 0;
-  MPI_Allreduce(&local_ok, &global_ok, 1, MPI_INT, MPI_LAND, comm);
-
-  GetOutput() = global_ok;
+  GetOutput() = CheckAndReduce(comm, rank, in.dest, buffer);
   return true;
 }
 

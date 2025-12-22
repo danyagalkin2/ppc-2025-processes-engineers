@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstdint>
-
 #include "task/include/task.hpp"
 
 namespace galkin_d_ring {

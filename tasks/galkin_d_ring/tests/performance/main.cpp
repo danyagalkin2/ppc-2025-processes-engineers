@@ -5,7 +5,6 @@
 #include "galkin_d_ring/mpi/include/ops_mpi.hpp"
 #include "galkin_d_ring/seq/include/ops_seq.hpp"
 #include "util/include/perf_test_util.hpp"
-#include "util/include/util.hpp"
 
 namespace galkin_d_ring {
 
@@ -19,7 +18,7 @@ class GalkinDRingPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType>
     MPI_Initialized(&initialized);
 
     int size = 1;
-    if (initialized) {
+    if (initialized != 0) {
       MPI_Comm_size(MPI_COMM_WORLD, &size);
     }
 
