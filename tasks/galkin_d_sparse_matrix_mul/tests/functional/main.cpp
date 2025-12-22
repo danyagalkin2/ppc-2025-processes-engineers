@@ -116,11 +116,11 @@ class GalkinDSparseMatMulFuncTests : public ppc::util::BaseRunFuncTests<InType, 
     switch (case_id) {
       case 0: {
         const int n = 4;
-        input_data_.A = MakeIdentityCCS(n);
-        input_data_.B = MakeIdentityCCS(n);
+        input_data_.a = MakeIdentityCCS(n);
+        input_data_.b = MakeIdentityCCS(n);
 
-        const auto dense_a = CCSToDense(input_data_.A);
-        const auto dense_b = CCSToDense(input_data_.B);
+        const auto dense_a = CCSToDense(input_data_.a);
+        const auto dense_b = CCSToDense(input_data_.b);
         const auto dense_c = DenseMatMul(dense_a, n, n, dense_b, n);
         expected_ = DenseToCCSSorted(dense_c, n, n);
         break;
@@ -128,21 +128,21 @@ class GalkinDSparseMatMulFuncTests : public ppc::util::BaseRunFuncTests<InType, 
       case 1: {
         const int n = 5;
         const std::vector<double> diag = {2.0, -1.0, 0.0, 3.5, 4.0};
-        input_data_.A = MakeDiagonalCCS(diag);
-        input_data_.B = MakeIdentityCCS(n);
+        input_data_.a = MakeDiagonalCCS(diag);
+        input_data_.b = MakeIdentityCCS(n);
 
-        const auto dense_a = CCSToDense(input_data_.A);
-        const auto dense_b = CCSToDense(input_data_.B);
+        const auto dense_a = CCSToDense(input_data_.a);
+        const auto dense_b = CCSToDense(input_data_.b);
         const auto dense_c = DenseMatMul(dense_a, n, n, dense_b, n);
         expected_ = DenseToCCSSorted(dense_c, n, n);
         break;
       }
       case 2: {
-        input_data_.A = MakeSmallManualA_3x2();
-        input_data_.B = MakeSmallManualB_2x3();
+        input_data_.a = MakeSmallManualA_3x2();
+        input_data_.b = MakeSmallManualB_2x3();
 
-        const auto dense_a = CCSToDense(input_data_.A);
-        const auto dense_b = CCSToDense(input_data_.B);
+        const auto dense_a = CCSToDense(input_data_.a);
+        const auto dense_b = CCSToDense(input_data_.b);
         const auto dense_c = DenseMatMul(dense_a, 3, 2, dense_b, 3);
         expected_ = DenseToCCSSorted(dense_c, 3, 3);
         break;
@@ -162,8 +162,8 @@ class GalkinDSparseMatMulFuncTests : public ppc::util::BaseRunFuncTests<InType, 
         b.row_idx = {0, 1, 1, 2};
         b.values = {5.0, 6.0, 7.0, 8.0};
 
-        input_data_.A = a;
-        input_data_.B = b;
+        input_data_.a = a;
+        input_data_.b = b;
 
         const auto dense_a = CCSToDense(a);
         const auto dense_b = CCSToDense(b);
@@ -173,11 +173,11 @@ class GalkinDSparseMatMulFuncTests : public ppc::util::BaseRunFuncTests<InType, 
       }
       default: {
         const int n = 3;
-        input_data_.A = MakeIdentityCCS(n);
-        input_data_.B = MakeIdentityCCS(n);
+        input_data_.a = MakeIdentityCCS(n);
+        input_data_.b = MakeIdentityCCS(n);
 
-        const auto dense_a = CCSToDense(input_data_.A);
-        const auto dense_b = CCSToDense(input_data_.B);
+        const auto dense_a = CCSToDense(input_data_.a);
+        const auto dense_b = CCSToDense(input_data_.b);
         const auto dense_c = DenseMatMul(dense_a, n, n, dense_b, n);
         expected_ = DenseToCCSSorted(dense_c, n, n);
         break;
@@ -233,11 +233,11 @@ void ExpectFullPipelineSuccess(const InType &in, const OutType &expected) {
 
 TEST(GalkinDSparseMatMulStandalone, SeqPipelineStandardCase) {
   InType in;
-  in.A = MakeSmallManualA_3x2();
-  in.B = MakeSmallManualB_2x3();
+  in.a = MakeSmallManualA_3x2();
+  in.b = MakeSmallManualB_2x3();
 
-  const auto dense_a = CCSToDense(in.A);
-  const auto dense_b = CCSToDense(in.B);
+  const auto dense_a = CCSToDense(in.a);
+  const auto dense_b = CCSToDense(in.b);
   const auto dense_c = DenseMatMul(dense_a, 3, 2, dense_b, 3);
   const OutType expected = DenseToCCSSorted(dense_c, 3, 3);
 
@@ -250,11 +250,11 @@ TEST(GalkinDSparseMatMulStandalone, MpiPipelineStandardCase) {
   }
 
   InType in;
-  in.A = MakeSmallManualA_3x2();
-  in.B = MakeSmallManualB_2x3();
+  in.a = MakeSmallManualA_3x2();
+  in.b = MakeSmallManualB_2x3();
 
-  const auto dense_a = CCSToDense(in.A);
-  const auto dense_b = CCSToDense(in.B);
+  const auto dense_a = CCSToDense(in.a);
+  const auto dense_b = CCSToDense(in.b);
   const auto dense_c = DenseMatMul(dense_a, 3, 2, dense_b, 3);
   const OutType expected = DenseToCCSSorted(dense_c, 3, 3);
 
@@ -263,8 +263,8 @@ TEST(GalkinDSparseMatMulStandalone, MpiPipelineStandardCase) {
 
 TEST(GalkinDSparseMatMulValidation, RejectsIncompatibleDimsSeq) {
   InType in;
-  in.A = MakeIdentityCCS(3);
-  in.B = MakeIdentityCCS(4);
+  in.a = MakeIdentityCCS(3);
+  in.b = MakeIdentityCCS(4);
   GalkinDSparseMatMulSEQ task(in);
   EXPECT_FALSE(task.Validation());
 }
@@ -274,17 +274,17 @@ TEST(GalkinDSparseMatMulValidation, RejectsIncompatibleDimsMpi) {
     GTEST_SKIP();
   }
   InType in;
-  in.A = MakeIdentityCCS(3);
-  in.B = MakeIdentityCCS(4);
+  in.a = MakeIdentityCCS(3);
+  in.b = MakeIdentityCCS(4);
   GalkinDSparseMatMulMPI task(in);
   EXPECT_FALSE(task.Validation());
 }
 
 TEST(GalkinDSparseMatMulValidation, RejectsInvalidCCSSeq) {
   InType in;
-  in.A = MakeIdentityCCS(3);
-  in.B = MakeIdentityCCS(3);
-  in.A.col_ptr = {1, 0, 0, 0};
+  in.a = MakeIdentityCCS(3);
+  in.b = MakeIdentityCCS(3);
+  in.b.col_ptr = {1, 0, 0, 0};
   GalkinDSparseMatMulSEQ task(in);
   EXPECT_FALSE(task.Validation());
 }
@@ -294,9 +294,9 @@ TEST(GalkinDSparseMatMulValidation, RejectsInvalidCCSMpi) {
     GTEST_SKIP();
   }
   InType in;
-  in.A = MakeIdentityCCS(3);
-  in.B = MakeIdentityCCS(3);
-  in.B.col_ptr = {0, 2, 1, 3};
+  in.a = MakeIdentityCCS(3);
+  in.b = MakeIdentityCCS(3);
+  in.b.col_ptr = {0, 2, 1, 3};
   GalkinDSparseMatMulMPI task(in);
   EXPECT_FALSE(task.Validation());
 }
@@ -322,20 +322,20 @@ void RunTaskTwice(TaskType &task, const InType &first, const OutType &exp1, cons
 
 TEST(GalkinDSparseMatMulPipeline, SeqTaskCanBeReusedAcrossRuns) {
   InType first;
-  first.A = MakeIdentityCCS(4);
-  first.B = MakeIdentityCCS(4);
+  first.a = MakeIdentityCCS(4);
+  first.b = MakeIdentityCCS(4);
 
-  const auto dense_a1 = CCSToDense(first.A);
-  const auto dense_b1 = CCSToDense(first.B);
+  const auto dense_a1 = CCSToDense(first.a);
+  const auto dense_b1 = CCSToDense(first.b);
   const auto dense_c1 = DenseMatMul(dense_a1, 4, 4, dense_b1, 4);
   const OutType exp1 = DenseToCCSSorted(dense_c1, 4, 4);
 
   InType second;
-  second.A = MakeSmallManualA_3x2();
-  second.B = MakeSmallManualB_2x3();
+  second.a = MakeSmallManualA_3x2();
+  second.b = MakeSmallManualB_2x3();
 
-  const auto dense_a2 = CCSToDense(second.A);
-  const auto dense_b2 = CCSToDense(second.B);
+  const auto dense_a2 = CCSToDense(second.a);
+  const auto dense_b2 = CCSToDense(second.b);
   const auto dense_c2 = DenseMatMul(dense_a2, 3, 2, dense_b2, 3);
   const OutType exp2 = DenseToCCSSorted(dense_c2, 3, 3);
 
@@ -349,20 +349,20 @@ TEST(GalkinDSparseMatMulPipeline, MpiTaskCanBeReusedAcrossRuns) {
   }
 
   InType first;
-  first.A = MakeIdentityCCS(4);
-  first.B = MakeIdentityCCS(4);
+  first.a = MakeIdentityCCS(4);
+  first.b = MakeIdentityCCS(4);
 
-  const auto dense_a1 = CCSToDense(first.A);
-  const auto dense_b1 = CCSToDense(first.B);
+  const auto dense_a1 = CCSToDense(first.a);
+  const auto dense_b1 = CCSToDense(first.b);
   const auto dense_c1 = DenseMatMul(dense_a1, 4, 4, dense_b1, 4);
   const OutType exp1 = DenseToCCSSorted(dense_c1, 4, 4);
 
   InType second;
-  second.A = MakeSmallManualA_3x2();
-  second.B = MakeSmallManualB_2x3();
+  second.a = MakeSmallManualA_3x2();
+  second.b = MakeSmallManualB_2x3();
 
-  const auto dense_a2 = CCSToDense(second.A);
-  const auto dense_b2 = CCSToDense(second.B);
+  const auto dense_a2 = CCSToDense(second.a);
+  const auto dense_b2 = CCSToDense(second.b);
   const auto dense_c2 = DenseMatMul(dense_a2, 3, 2, dense_b2, 3);
   const OutType exp2 = DenseToCCSSorted(dense_c2, 3, 3);
 
