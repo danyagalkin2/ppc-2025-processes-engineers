@@ -15,19 +15,22 @@ using OutType = galkin_d_ring::OutType;
 class GalkinDRingPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
  protected:
   void SetUp() override {
+    int initialized = 0;
+    MPI_Initialized(&initialized);
+
     int size = 1;
-    if (ppc::util::IsUnderMpirun()) {
+    if (initialized) {
       MPI_Comm_size(MPI_COMM_WORLD, &size);
     }
 
-    constexpr int kCount = 5'000'000;
-    const int dest = (size > 1) ? size / 2 : 0;
+    if (size <= 1) {
+      GTEST_SKIP();
+    }
 
-    input_data_ = InType{
-        .src = 0,
-        .dest = dest,
-        .count = kCount,
-    };
+    constexpr int kCount = 5'000'000;
+    const int dest = size / 2;
+
+    input_data_ = InType{.src = 0, .dest = dest, .count = kCount};
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
