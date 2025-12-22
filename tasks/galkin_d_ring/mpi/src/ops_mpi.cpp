@@ -2,19 +2,25 @@
 
 #include <mpi.h>
 
+#include <algorithm>
+#include <cstddef>
 #include <vector>
+
+#include "galkin_d_ring/common/include/common.hpp"
 
 namespace galkin_d_ring {
 
 namespace {
 
 struct CommGuard {
-  MPI_Comm &comm;
-  explicit CommGuard(MPI_Comm &c) : comm(c) {}
+  MPI_Comm *comm = nullptr;
+
+  explicit CommGuard(MPI_Comm *c) : comm(c) {}
+
   ~CommGuard() {
-    if (comm != MPI_COMM_NULL) {
-      MPI_Comm_free(&comm);
-      comm = MPI_COMM_NULL;
+    if (comm != nullptr && *comm != MPI_COMM_NULL) {
+      MPI_Comm_free(comm);
+      *comm = MPI_COMM_NULL;
     }
   }
 };
@@ -24,10 +30,10 @@ bool ValidateParams(const InType &in, int size) {
 }
 
 std::vector<int> InitBuffer(int rank, int src, int count) {
-  std::vector<int> buffer(count, 0);
+  std::vector<int> buffer(static_cast<std::size_t>(count), 0);
   if (rank == src) {
-    for (int i = 0; i < count; ++i) {
-      buffer[i] = i + 1;
+    for (std::size_t i = 0; i < buffer.size(); ++i) {
+      buffer[i] = static_cast<int>(i) + 1;
     }
   }
   return buffer;
@@ -53,8 +59,8 @@ int CheckAndReduce(MPI_Comm comm, int rank, int dest, const std::vector<int> &bu
   int local_ok = 1;
 
   if (rank == dest) {
-    for (int i = 0; i < static_cast<int>(buffer.size()); ++i) {
-      if (buffer[i] != i + 1) {
+    for (std::size_t i = 0; i < buffer.size(); ++i) {
+      if (buffer[i] != static_cast<int>(i) + 1) {
         local_ok = 0;
         break;
       }
@@ -83,9 +89,7 @@ bool GalkinDRingMPI::ValidationImpl() {
 
   int size = 1;
   MPI_Comm_size(MPI_COMM_WORLD, &size);
-  if (size < 1) {
-    size = 1;
-  }
+  size = std::max(size, 1);
 
   if (in.src < 0 || in.src >= size) {
     return false;
@@ -105,7 +109,7 @@ bool GalkinDRingMPI::PreProcessingImpl() {
 bool GalkinDRingMPI::RunImpl() {
   MPI_Comm comm = MPI_COMM_NULL;
   MPI_Comm_dup(MPI_COMM_WORLD, &comm);
-  CommGuard guard(comm);
+  CommGuard guard(&comm);
 
   int rank = 0;
   int size = 1;
