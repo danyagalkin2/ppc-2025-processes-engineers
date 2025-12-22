@@ -17,36 +17,38 @@ struct CCSMatrix {
 };
 
 struct Input {
-  CCSMatrix A;
-  CCSMatrix B;
+  CCSMatrix a;
+  CCSMatrix b;
 };
 
 using InType = Input;
 using OutType = CCSMatrix;
 using BaseTask = ppc::task::Task<InType, OutType>;
 
-inline bool IsValidCCS(const CCSMatrix &M) {
-  if (M.nrows < 0 || M.ncols < 0) {
-    return false;
-  }
-  if (M.col_ptr.size() != static_cast<size_t>(M.ncols + 1)) {
-    return false;
-  }
-  if (M.col_ptr.empty() || M.col_ptr.front() != 0) {
-    return false;
-  }
-  if (M.row_idx.size() != M.values.size()) {
+inline bool IsValidCCS(const CCSMatrix &matrix) {
+  if (matrix.nrows < 0 || matrix.ncols < 0) {
     return false;
   }
 
-  for (int j = 0; j < M.ncols; ++j) {
-    if (M.col_ptr[j] > M.col_ptr[j + 1]) {
+  const std::size_t expected_col_ptr = static_cast<std::size_t>(matrix.ncols) + 1U;
+  if (matrix.col_ptr.size() != expected_col_ptr) {
+    return false;
+  }
+  if (matrix.col_ptr.empty() || matrix.col_ptr.front() != 0) {
+    return false;
+  }
+  if (matrix.row_idx.size() != matrix.values.size()) {
+    return false;
+  }
+
+  for (int col = 0; col < matrix.ncols; ++col) {
+    if (matrix.col_ptr[col] > matrix.col_ptr[col + 1]) {
       return false;
     }
   }
 
-  for (int r : M.row_idx) {
-    if (r < 0 || r >= M.nrows) {
+  for (int row : matrix.row_idx) {
+    if (row < 0 || row >= matrix.nrows) {
       return false;
     }
   }
@@ -54,17 +56,20 @@ inline bool IsValidCCS(const CCSMatrix &M) {
   return true;
 }
 
-inline bool IsMultipliable(const CCSMatrix &A, const CCSMatrix &B) {
-  return A.ncols == B.nrows;
+inline bool IsMultipliable(const CCSMatrix &left, const CCSMatrix &right) {
+  return left.ncols == right.nrows;
 }
 
-inline std::vector<double> CCSToDense(const CCSMatrix &M) {
-  std::vector<double> dense(M.nrows * M.ncols, 0.0);
+inline std::vector<double> CCSToDense(const CCSMatrix &matrix) {
+  const std::size_t total = static_cast<std::size_t>(matrix.nrows) * static_cast<std::size_t>(matrix.ncols);
+  std::vector<double> dense(total, 0.0);
 
-  for (int j = 0; j < M.ncols; ++j) {
-    for (int p = M.col_ptr[j]; p < M.col_ptr[j + 1]; ++p) {
-      int i = M.row_idx[p];
-      dense[i * M.ncols + j] += M.values[p];
+  for (int col = 0; col < matrix.ncols; ++col) {
+    for (int pos = matrix.col_ptr[col]; pos < matrix.col_ptr[col + 1]; ++pos) {
+      const int row = matrix.row_idx[pos];
+      const std::size_t idx =
+          static_cast<std::size_t>(row) * static_cast<std::size_t>(matrix.ncols) + static_cast<std::size_t>(col);
+      dense[idx] += matrix.values[pos];
     }
   }
 
@@ -72,41 +77,43 @@ inline std::vector<double> CCSToDense(const CCSMatrix &M) {
 }
 
 inline CCSMatrix DenseToCCSSorted(const std::vector<double> &dense, int nrows, int ncols, double eps = 1e-12) {
-  CCSMatrix M;
-  M.nrows = nrows;
-  M.ncols = ncols;
-  M.col_ptr.resize(ncols + 1, 0);
+  CCSMatrix matrix;
+  matrix.nrows = nrows;
+  matrix.ncols = ncols;
+  matrix.col_ptr.resize(static_cast<std::size_t>(ncols) + 1U, 0);
 
-  for (int j = 0; j < ncols; ++j) {
-    for (int i = 0; i < nrows; ++i) {
-      double v = dense[i * ncols + j];
-      if (std::fabs(v) > eps) {
-        M.row_idx.push_back(i);
-        M.values.push_back(v);
+  for (int col = 0; col < ncols; ++col) {
+    for (int row = 0; row < nrows; ++row) {
+      const std::size_t idx =
+          static_cast<std::size_t>(row) * static_cast<std::size_t>(ncols) + static_cast<std::size_t>(col);
+      const double value = dense[idx];
+      if (std::fabs(value) > eps) {
+        matrix.row_idx.push_back(row);
+        matrix.values.push_back(value);
       }
     }
-    M.col_ptr[j + 1] = static_cast<int>(M.values.size());
+    matrix.col_ptr[static_cast<std::size_t>(col) + 1U] = static_cast<int>(matrix.values.size());
   }
 
-  return M;
+  return matrix;
 }
 
-inline bool NearlyEqualCCS(const CCSMatrix &A, const CCSMatrix &B, double eps = 1e-9) {
-  if (A.nrows != B.nrows || A.ncols != B.ncols) {
+inline bool NearlyEqualCCS(const CCSMatrix &left, const CCSMatrix &right, double eps = 1e-9) {
+  if (left.nrows != right.nrows || left.ncols != right.ncols) {
     return false;
   }
-  if (A.col_ptr != B.col_ptr) {
+  if (left.col_ptr != right.col_ptr) {
     return false;
   }
-  if (A.row_idx != B.row_idx) {
+  if (left.row_idx != right.row_idx) {
     return false;
   }
-  if (A.values.size() != B.values.size()) {
+  if (left.values.size() != right.values.size()) {
     return false;
   }
 
-  for (size_t i = 0; i < A.values.size(); ++i) {
-    if (std::fabs(A.values[i] - B.values[i]) > eps) {
+  for (std::size_t idx = 0; idx < left.values.size(); ++idx) {
+    if (std::fabs(left.values[idx] - right.values[idx]) > eps) {
       return false;
     }
   }

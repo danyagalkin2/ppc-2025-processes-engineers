@@ -2,13 +2,14 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <vector>
 
 namespace galkin_d_sparse_matrix_mul {
 
 namespace {
 constexpr double kEpsDrop = 1e-12;
-}
+}  // namespace
 
 GalkinDSparseMatMulSEQ::GalkinDSparseMatMulSEQ(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
@@ -18,7 +19,7 @@ GalkinDSparseMatMulSEQ::GalkinDSparseMatMulSEQ(const InType &in) {
 
 bool GalkinDSparseMatMulSEQ::ValidationImpl() {
   const auto &in = GetInput();
-  return IsValidCCS(in.A) && IsValidCCS(in.B) && IsMultipliable(in.A, in.B);
+  return IsValidCCS(in.a) && IsValidCCS(in.b) && IsMultipliable(in.a, in.b);
 }
 
 bool GalkinDSparseMatMulSEQ::PreProcessingImpl() {
@@ -32,56 +33,55 @@ bool GalkinDSparseMatMulSEQ::RunImpl() {
     return true;
   }
 
-  const auto &A = GetInput().A;
-  const auto &B = GetInput().B;
+  const auto &left = GetInput().a;
+  const auto &right = GetInput().b;
 
-  CCSMatrix C;
-  C.nrows = A.nrows;
-  C.ncols = B.ncols;
-  C.col_ptr.assign(C.ncols + 1, 0);
+  CCSMatrix out;
+  out.nrows = left.nrows;
+  out.ncols = right.ncols;
+  out.col_ptr.assign(static_cast<std::size_t>(out.ncols) + 1U, 0);
 
-  std::vector<double> acc(static_cast<size_t>(C.nrows), 0.0);
-  std::vector<int> touched;
-  touched.reserve(256);
-  std::vector<unsigned char> mark(static_cast<size_t>(C.nrows), 0);
+  std::vector<double> acc(static_cast<std::size_t>(out.nrows), 0.0);
+  std::vector<int> touched_rows;
+  touched_rows.reserve(256);
+  std::vector<unsigned char> mark(static_cast<std::size_t>(out.nrows), 0);
 
-  for (int j = 0; j < B.ncols; ++j) {
-    for (int r : touched) {
-      acc[static_cast<size_t>(r)] = 0.0;
-      mark[static_cast<size_t>(r)] = 0;
+  for (int col = 0; col < right.ncols; ++col) {
+    for (int row : touched_rows) {
+      acc[static_cast<std::size_t>(row)] = 0.0;
+      mark[static_cast<std::size_t>(row)] = 0;
     }
-    touched.clear();
+    touched_rows.clear();
 
-    for (int pb = B.col_ptr[j]; pb < B.col_ptr[j + 1]; ++pb) {
-      const int k = B.row_idx[pb];
-      const double bkj = B.values[pb];
+    for (int pb = right.col_ptr[col]; pb < right.col_ptr[col + 1]; ++pb) {
+      const int k = right.row_idx[pb];
+      const double bkj = right.values[pb];
 
-      for (int pa = A.col_ptr[k]; pa < A.col_ptr[k + 1]; ++pa) {
-        const int i = A.row_idx[pa];
-        const double aik = A.values[pa];
-        const double add = aik * bkj;
+      for (int pa = left.col_ptr[k]; pa < left.col_ptr[k + 1]; ++pa) {
+        const int row = left.row_idx[pa];
+        const double add = left.values[pa] * bkj;
 
-        if (!mark[static_cast<size_t>(i)]) {
-          mark[static_cast<size_t>(i)] = 1;
-          touched.push_back(i);
+        if (mark[static_cast<std::size_t>(row)] == 0U) {
+          mark[static_cast<std::size_t>(row)] = 1U;
+          touched_rows.push_back(row);
         }
-        acc[static_cast<size_t>(i)] += add;
+        acc[static_cast<std::size_t>(row)] += add;
       }
     }
 
-    std::sort(touched.begin(), touched.end());
-    for (int i : touched) {
-      const double v = acc[static_cast<size_t>(i)];
-      if (std::fabs(v) > kEpsDrop) {
-        C.row_idx.push_back(i);
-        C.values.push_back(v);
+    std::sort(touched_rows.begin(), touched_rows.end());
+    for (int row : touched_rows) {
+      const double value = acc[static_cast<std::size_t>(row)];
+      if (std::fabs(value) > kEpsDrop) {
+        out.row_idx.push_back(row);
+        out.values.push_back(value);
       }
     }
 
-    C.col_ptr[j + 1] = static_cast<int>(C.values.size());
+    out.col_ptr[static_cast<std::size_t>(col) + 1U] = static_cast<int>(out.values.size());
   }
 
-  GetOutput() = std::move(C);
+  GetOutput() = std::move(out);
   return true;
 }
 
