@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <ranges>
 #include <vector>
 
 #include "task/include/task.hpp"
