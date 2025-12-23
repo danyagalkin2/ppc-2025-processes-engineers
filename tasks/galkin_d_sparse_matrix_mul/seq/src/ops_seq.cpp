@@ -6,7 +6,7 @@
 #include <utility>
 #include <vector>
 
-#include "galkin_d_sparse_matrix_mul/common/include/common.hpp"  // include-cleaner
+#include "galkin_d_sparse_matrix_mul/common/include/common.hpp"
 
 namespace galkin_d_sparse_matrix_mul {
 
@@ -30,7 +30,6 @@ bool GalkinDSparseMatMulSEQ::PreProcessingImpl() {
   return true;
 }
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 bool GalkinDSparseMatMulSEQ::RunImpl() {
   if (!ValidationImpl()) {
     GetOutput() = OutType{};

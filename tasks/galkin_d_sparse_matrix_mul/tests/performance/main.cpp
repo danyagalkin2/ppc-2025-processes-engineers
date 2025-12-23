@@ -6,7 +6,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <ranges>
 #include <vector>
 
 #include "galkin_d_sparse_matrix_mul/common/include/common.hpp"

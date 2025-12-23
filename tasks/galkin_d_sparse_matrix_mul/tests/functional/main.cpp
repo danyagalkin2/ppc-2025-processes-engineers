@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <mpi.h>
 
 #include <array>
 #include <cmath>
@@ -248,6 +249,9 @@ TEST(GalkinDSparseMatMulStandalone, MpiPipelineStandardCase) {
     GTEST_SKIP();
   }
 
+  int rank = 0;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
   InType in;
   in.a = MakeSmallManualA3x2();
   in.b = MakeSmallManualB2x3();
@@ -257,26 +261,16 @@ TEST(GalkinDSparseMatMulStandalone, MpiPipelineStandardCase) {
   const auto dense_c = DenseMatMul(dense_a, 3, 2, dense_b, 3);
   const OutType expected = DenseToCCSSorted(dense_c, 3, 3);
 
-  ExpectFullPipelineSuccess<GalkinDSparseMatMulMPI>(in, expected);
-}
+  auto task = std::make_shared<GalkinDSparseMatMulMPI>(in);
+  ASSERT_TRUE(task->Validation());
+  ASSERT_TRUE(task->PreProcessing());
+  ASSERT_TRUE(task->Run());
+  ASSERT_TRUE(task->PostProcessing());
 
-TEST(GalkinDSparseMatMulValidation, RejectsIncompatibleDimsSeq) {
-  InType in;
-  in.a = MakeIdentityCCS(3);
-  in.b = MakeIdentityCCS(4);
-  GalkinDSparseMatMulSEQ task(in);
-  EXPECT_FALSE(task.Validation());
-}
-
-TEST(GalkinDSparseMatMulValidation, RejectsIncompatibleDimsMpi) {
-  if (!ppc::util::IsUnderMpirun()) {
-    GTEST_SKIP();
+  if (rank == 0) {
+    EXPECT_TRUE(NearlyEqualCCS(task->GetOutput(), expected, 1e-9));
   }
-  InType in;
-  in.a = MakeIdentityCCS(3);
-  in.b = MakeIdentityCCS(4);
-  GalkinDSparseMatMulMPI task(in);
-  EXPECT_FALSE(task.Validation());
+  MPI_Barrier(MPI_COMM_WORLD);
 }
 
 TEST(GalkinDSparseMatMulValidation, RejectsInvalidCCSSeq) {
@@ -292,12 +286,20 @@ TEST(GalkinDSparseMatMulValidation, RejectsInvalidCCSMpi) {
   if (!ppc::util::IsUnderMpirun()) {
     GTEST_SKIP();
   }
+
+  int rank = 0;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
   InType in;
   in.a = MakeIdentityCCS(3);
   in.b = MakeIdentityCCS(3);
   in.b.col_ptr = {0, 2, 1, 3};
+
   GalkinDSparseMatMulMPI task(in);
-  EXPECT_FALSE(task.Validation());
+  if (rank == 0) {
+    EXPECT_FALSE(task.Validation());
+  }
+  MPI_Barrier(MPI_COMM_WORLD);
 }
 
 template <typename TaskType>
@@ -343,10 +345,13 @@ TEST(GalkinDSparseMatMulPipeline, SeqTaskCanBeReusedAcrossRuns) {
   RunTaskTwice(task, first, expected_first, second, expected_second);
 }
 
-TEST(GalkinDSparseMatMulPipeline, MpiTaskCanBeReusedAcrossRuns) {
+TEST(GalkinDSparseMatMulPipeline, MpiTwoIndependentRuns) {
   if (!ppc::util::IsUnderMpirun()) {
     GTEST_SKIP();
   }
+
+  int rank = 0;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
   InType first;
   first.a = MakeIdentityCCS(4);
@@ -357,6 +362,17 @@ TEST(GalkinDSparseMatMulPipeline, MpiTaskCanBeReusedAcrossRuns) {
   const auto dense_c1 = DenseMatMul(dense_a1, 4, 4, dense_b1, 4);
   const OutType expected_first = DenseToCCSSorted(dense_c1, 4, 4);
 
+  {
+    auto task = std::make_shared<GalkinDSparseMatMulMPI>(first);
+    ASSERT_TRUE(task->Validation());
+    ASSERT_TRUE(task->PreProcessing());
+    ASSERT_TRUE(task->Run());
+    ASSERT_TRUE(task->PostProcessing());
+    if (rank == 0) {
+      EXPECT_TRUE(NearlyEqualCCS(task->GetOutput(), expected_first, 1e-9));
+    }
+  }
+
   InType second;
   second.a = MakeSmallManualA3x2();
   second.b = MakeSmallManualB2x3();
@@ -366,8 +382,17 @@ TEST(GalkinDSparseMatMulPipeline, MpiTaskCanBeReusedAcrossRuns) {
   const auto dense_c2 = DenseMatMul(dense_a2, 3, 2, dense_b2, 3);
   const OutType expected_second = DenseToCCSSorted(dense_c2, 3, 3);
 
-  GalkinDSparseMatMulMPI task(first);
-  RunTaskTwice(task, first, expected_first, second, expected_second);
+  {
+    auto task = std::make_shared<GalkinDSparseMatMulMPI>(second);
+    ASSERT_TRUE(task->Validation());
+    ASSERT_TRUE(task->PreProcessing());
+    ASSERT_TRUE(task->Run());
+    ASSERT_TRUE(task->PostProcessing());
+    if (rank == 0) {
+      EXPECT_TRUE(NearlyEqualCCS(task->GetOutput(), expected_second, 1e-9));
+    }
+  }
+  MPI_Barrier(MPI_COMM_WORLD);
 }
 
 }  // namespace

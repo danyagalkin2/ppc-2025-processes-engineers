@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <ranges>
 #include <utility>
 #include <vector>
 
@@ -194,8 +193,6 @@ inline CCSMatrix BuildFullFromGathered(const CCSMatrix &left, const CCSMatrix &r
   return full;
 }
 
-// --- helpers чтобы RunImpl был "плоским" (и clang-tidy не ругался) ---
-
 struct RootMetaRecv {
   int *cols = nullptr;
   int *nnz = nullptr;
@@ -336,13 +333,20 @@ bool GalkinDSparseMatMulMPI::RunImpl() {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-  if (!ValidationImpl()) {
+  const int ok_local = ValidationImpl() ? 1 : 0;
+  int ok_all = 0;
+  MPI_Allreduce(&ok_local, &ok_all, 1, MPI_INT, MPI_LAND, MPI_COMM_WORLD);
+
+  if (ok_all == 0) {
     GetOutput() = OutType{};
     return true;
   }
 
-  const auto &left = GetInput().a;
-  const auto &right = GetInput().b;
+  CCSMatrix left = GetInput().a;
+  CCSMatrix right = GetInput().b;
+
+  BroadcastCCSMatrix(&left, 0, MPI_COMM_WORLD);
+  BroadcastCCSMatrix(&right, 0, MPI_COMM_WORLD);
 
   int col_begin = 0;
   int col_end = 0;
