@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <utility>
 #include <vector>
 
 #include "galkin_d_sparse_matrix_mul/common/include/common.hpp"
