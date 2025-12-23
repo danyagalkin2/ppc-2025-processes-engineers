@@ -1,6 +1,7 @@
 #pragma once
 
 #include "galkin_d_sparse_matrix_mul/common/include/common.hpp"
+#include "task/include/task.hpp"
 
 namespace galkin_d_sparse_matrix_mul {
 

@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <ranges>
 #include <vector>
 
 #include "task/include/task.hpp"
@@ -44,16 +43,13 @@ inline bool IsValidCCS(const CCSMatrix &matrix) {
   }
 
   for (int col = 0; col < matrix.ncols; ++col) {
-    if (matrix.col_ptr[static_cast<std::size_t>(col)] > matrix.col_ptr[static_cast<std::size_t>(col + 1)]) {
+    const std::size_t c = static_cast<std::size_t>(col);
+    if (matrix.col_ptr[c] > matrix.col_ptr[c + 1U]) {
       return false;
     }
   }
 
-  if (!std::ranges::all_of(matrix.row_idx, [&](int row) { return row >= 0 && row < matrix.nrows; })) {
-    return false;
-  }
-
-  return true;
+  return std::ranges::all_of(matrix.row_idx, [&](int row) { return row >= 0 && row < matrix.nrows; });
 }
 
 inline bool IsMultipliable(const CCSMatrix &left, const CCSMatrix &right) {
@@ -65,12 +61,15 @@ inline std::vector<double> CCSToDense(const CCSMatrix &matrix) {
   std::vector<double> dense(total, 0.0);
 
   for (int col = 0; col < matrix.ncols; ++col) {
-    for (int pos = matrix.col_ptr[static_cast<std::size_t>(col)];
-         pos < matrix.col_ptr[static_cast<std::size_t>(col + 1)]; ++pos) {
-      const int row = matrix.row_idx[static_cast<std::size_t>(pos)];
-      const std::size_t idx =
-          (static_cast<std::size_t>(row) * static_cast<std::size_t>(matrix.ncols)) + static_cast<std::size_t>(col);
-      dense[idx] += matrix.values[static_cast<std::size_t>(pos)];
+    const std::size_t c = static_cast<std::size_t>(col);
+    const int begin = matrix.col_ptr[c];
+    const int end = matrix.col_ptr[c + 1U];
+
+    for (int pos = begin; pos < end; ++pos) {
+      const std::size_t p = static_cast<std::size_t>(pos);
+      const int row = matrix.row_idx[p];
+      const std::size_t idx = (static_cast<std::size_t>(row) * static_cast<std::size_t>(matrix.ncols)) + c;
+      dense[idx] += matrix.values[p];
     }
   }
 
@@ -84,16 +83,16 @@ inline CCSMatrix DenseToCCSSorted(const std::vector<double> &dense, int nrows, i
   matrix.col_ptr.resize(static_cast<std::size_t>(ncols) + 1U, 0);
 
   for (int col = 0; col < ncols; ++col) {
+    const std::size_t c = static_cast<std::size_t>(col);
     for (int row = 0; row < nrows; ++row) {
-      const std::size_t idx =
-          (static_cast<std::size_t>(row) * static_cast<std::size_t>(ncols)) + static_cast<std::size_t>(col);
+      const std::size_t idx = (static_cast<std::size_t>(row) * static_cast<std::size_t>(ncols)) + c;
       const double value = dense[idx];
       if (std::fabs(value) > eps) {
         matrix.row_idx.push_back(row);
         matrix.values.push_back(value);
       }
     }
-    matrix.col_ptr[static_cast<std::size_t>(col) + 1U] = static_cast<int>(matrix.values.size());
+    matrix.col_ptr[c + 1U] = static_cast<int>(matrix.values.size());
   }
 
   return matrix;

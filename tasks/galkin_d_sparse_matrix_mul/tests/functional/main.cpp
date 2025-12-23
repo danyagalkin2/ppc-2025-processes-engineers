@@ -1,11 +1,9 @@
 #include <gtest/gtest.h>
-#include <mpi.h>
 
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <memory>
-#include <ranges>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -303,14 +301,15 @@ TEST(GalkinDSparseMatMulValidation, RejectsInvalidCCSMpi) {
 }
 
 template <typename TaskType>
-void RunTaskTwice(TaskType &task, const InType &first, const OutType &exp1, const InType &second, const OutType &exp2) {
+void RunTaskTwice(TaskType &task, const InType &first, const OutType &expected_first, const InType &second,
+                  const OutType &expected_second) {
   task.GetInput() = first;
   task.GetOutput() = OutType{};
   ASSERT_TRUE(task.Validation());
   ASSERT_TRUE(task.PreProcessing());
   ASSERT_TRUE(task.Run());
   ASSERT_TRUE(task.PostProcessing());
-  ASSERT_TRUE(NearlyEqualCCS(task.GetOutput(), exp1, 1e-9));
+  ASSERT_TRUE(NearlyEqualCCS(task.GetOutput(), expected_first, 1e-9));
 
   task.GetInput() = second;
   task.GetOutput() = OutType{};
@@ -318,7 +317,7 @@ void RunTaskTwice(TaskType &task, const InType &first, const OutType &exp1, cons
   ASSERT_TRUE(task.PreProcessing());
   ASSERT_TRUE(task.Run());
   ASSERT_TRUE(task.PostProcessing());
-  ASSERT_TRUE(NearlyEqualCCS(task.GetOutput(), exp2, 1e-9));
+  ASSERT_TRUE(NearlyEqualCCS(task.GetOutput(), expected_second, 1e-9));
 }
 
 TEST(GalkinDSparseMatMulPipeline, SeqTaskCanBeReusedAcrossRuns) {
@@ -329,7 +328,7 @@ TEST(GalkinDSparseMatMulPipeline, SeqTaskCanBeReusedAcrossRuns) {
   const auto dense_a1 = CCSToDense(first.a);
   const auto dense_b1 = CCSToDense(first.b);
   const auto dense_c1 = DenseMatMul(dense_a1, 4, 4, dense_b1, 4);
-  const OutType exp1 = DenseToCCSSorted(dense_c1, 4, 4);
+  const OutType expected_first = DenseToCCSSorted(dense_c1, 4, 4);
 
   InType second;
   second.a = MakeSmallManualA3x2();
@@ -338,10 +337,10 @@ TEST(GalkinDSparseMatMulPipeline, SeqTaskCanBeReusedAcrossRuns) {
   const auto dense_a2 = CCSToDense(second.a);
   const auto dense_b2 = CCSToDense(second.b);
   const auto dense_c2 = DenseMatMul(dense_a2, 3, 2, dense_b2, 3);
-  const OutType exp2 = DenseToCCSSorted(dense_c2, 3, 3);
+  const OutType expected_second = DenseToCCSSorted(dense_c2, 3, 3);
 
   GalkinDSparseMatMulSEQ task(first);
-  RunTaskTwice(task, first, exp1, second, exp2);
+  RunTaskTwice(task, first, expected_first, second, expected_second);
 }
 
 TEST(GalkinDSparseMatMulPipeline, MpiTaskCanBeReusedAcrossRuns) {
@@ -356,7 +355,7 @@ TEST(GalkinDSparseMatMulPipeline, MpiTaskCanBeReusedAcrossRuns) {
   const auto dense_a1 = CCSToDense(first.a);
   const auto dense_b1 = CCSToDense(first.b);
   const auto dense_c1 = DenseMatMul(dense_a1, 4, 4, dense_b1, 4);
-  const OutType exp1 = DenseToCCSSorted(dense_c1, 4, 4);
+  const OutType expected_first = DenseToCCSSorted(dense_c1, 4, 4);
 
   InType second;
   second.a = MakeSmallManualA3x2();
@@ -365,10 +364,10 @@ TEST(GalkinDSparseMatMulPipeline, MpiTaskCanBeReusedAcrossRuns) {
   const auto dense_a2 = CCSToDense(second.a);
   const auto dense_b2 = CCSToDense(second.b);
   const auto dense_c2 = DenseMatMul(dense_a2, 3, 2, dense_b2, 3);
-  const OutType exp2 = DenseToCCSSorted(dense_c2, 3, 3);
+  const OutType expected_second = DenseToCCSSorted(dense_c2, 3, 3);
 
   GalkinDSparseMatMulMPI task(first);
-  RunTaskTwice(task, first, exp1, second, exp2);
+  RunTaskTwice(task, first, expected_first, second, expected_second);
 }
 
 }  // namespace

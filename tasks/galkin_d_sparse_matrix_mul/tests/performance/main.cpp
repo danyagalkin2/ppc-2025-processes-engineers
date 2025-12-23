@@ -6,7 +6,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <string>
 #include <vector>
 
 #include "galkin_d_sparse_matrix_mul/common/include/common.hpp"
@@ -42,7 +41,7 @@ struct XorShift64 {
   double NextDouble(double lo, double hi) {
     const std::uint64_t r = NextU64() >> 11;
     const double u = static_cast<double>(r) / static_cast<double>((1ULL << 53) - 1ULL);
-    return lo + (hi - lo) * u;
+    return lo + ((hi - lo) * u);
   }
 
   int NextInt(int lo, int hi) {
@@ -73,7 +72,7 @@ CCSMatrix GenerateRandomCCS(int nrows, int ncols, double dens, std::uint64_t see
     std::vector<int> touched_rows;
     touched_rows.reserve(static_cast<std::size_t>(target_per_col));
 
-    while (static_cast<int>(rows.size()) < target_per_col) {
+    while (rows.size() < static_cast<std::size_t>(target_per_col)) {
       const int row = rng.NextInt(0, nrows - 1);
       if (used[static_cast<std::size_t>(row)] == 0U) {
         used[static_cast<std::size_t>(row)] = 1U;
@@ -86,7 +85,7 @@ CCSMatrix GenerateRandomCCS(int nrows, int ncols, double dens, std::uint64_t see
       used[static_cast<std::size_t>(row)] = 0U;
     }
 
-    std::sort(rows.begin(), rows.end());
+    std::ranges::sort(rows);
 
     for (int row : rows) {
       matrix.row_idx.push_back(row);
@@ -107,11 +106,14 @@ double ChecksumCCS(const CCSMatrix &matrix) {
   double sum = 0.0;
 
   for (int col = 0; col < matrix.ncols; ++col) {
-    const int begin = matrix.col_ptr[static_cast<std::size_t>(col)];
-    const int end = matrix.col_ptr[static_cast<std::size_t>(col + 1)];
+    const std::size_t c = static_cast<std::size_t>(col);
+    const int begin = matrix.col_ptr[c];
+    const int end = matrix.col_ptr[c + 1U];
+
     for (int pos = begin; pos < end; ++pos) {
-      const int row = matrix.row_idx[static_cast<std::size_t>(pos)];
-      const double value = matrix.values[static_cast<std::size_t>(pos)];
+      const std::size_t p = static_cast<std::size_t>(pos);
+      const int row = matrix.row_idx[p];
+      const double value = matrix.values[p];
       sum += value * (1.0 + 0.001 * (row + 1)) * (1.0 + 0.0001 * (col + 1));
     }
   }

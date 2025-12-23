@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <ranges>
 #include <utility>
 #include <vector>
 
@@ -51,26 +50,36 @@ bool GalkinDSparseMatMulSEQ::RunImpl() {
 
   for (int col = 0; col < right.ncols; ++col) {
     for (int row : touched_rows) {
-      acc[static_cast<std::size_t>(row)] = 0.0;
-      mark[static_cast<std::size_t>(row)] = 0;
+      const std::size_t r = static_cast<std::size_t>(row);
+      acc[r] = 0.0;
+      mark[r] = 0;
     }
     touched_rows.clear();
 
-    for (int pb = right.col_ptr[static_cast<std::size_t>(col)]; pb < right.col_ptr[static_cast<std::size_t>(col + 1)];
-         ++pb) {
-      const int k = right.row_idx[static_cast<std::size_t>(pb)];
-      const double bkj = right.values[static_cast<std::size_t>(pb)];
+    const std::size_t c = static_cast<std::size_t>(col);
+    const int pb_begin = right.col_ptr[c];
+    const int pb_end = right.col_ptr[c + 1U];
 
-      for (int pa = left.col_ptr[static_cast<std::size_t>(k)]; pa < left.col_ptr[static_cast<std::size_t>(k + 1)];
-           ++pa) {
-        const int row = left.row_idx[static_cast<std::size_t>(pa)];
-        const double add = left.values[static_cast<std::size_t>(pa)] * bkj;
+    for (int pb = pb_begin; pb < pb_end; ++pb) {
+      const std::size_t p = static_cast<std::size_t>(pb);
+      const int k = right.row_idx[p];
+      const double bkj = right.values[p];
 
-        if (mark[static_cast<std::size_t>(row)] == 0U) {
-          mark[static_cast<std::size_t>(row)] = 1U;
+      const std::size_t kk = static_cast<std::size_t>(k);
+      const int pa_begin = left.col_ptr[kk];
+      const int pa_end = left.col_ptr[kk + 1U];
+
+      for (int pa = pa_begin; pa < pa_end; ++pa) {
+        const std::size_t a = static_cast<std::size_t>(pa);
+        const int row = left.row_idx[a];
+        const double add = left.values[a] * bkj;
+
+        const std::size_t r = static_cast<std::size_t>(row);
+        if (mark[r] == 0U) {
+          mark[r] = 1U;
           touched_rows.push_back(row);
         }
-        acc[static_cast<std::size_t>(row)] += add;
+        acc[r] += add;
       }
     }
 
@@ -83,7 +92,7 @@ bool GalkinDSparseMatMulSEQ::RunImpl() {
       }
     }
 
-    out.col_ptr[static_cast<std::size_t>(col) + 1U] = static_cast<int>(out.values.size());
+    out.col_ptr[c + 1U] = static_cast<int>(out.values.size());
   }
 
   GetOutput() = std::move(out);

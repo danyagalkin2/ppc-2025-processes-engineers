@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <ranges>
 #include <utility>
 #include <vector>
 
@@ -24,14 +23,13 @@ inline void SplitColumns(int ncols, int size, int rank, int *col_begin, int *col
   if (rank < rem) {
     start = rank * (base + 1);
   } else {
-    start = rem * (base + 1) + (rank - rem) * base;
+    start = (rem * (base + 1)) + ((rank - rem) * base);
   }
 
   *col_begin = start;
   *col_end = start + my;
 }
 
-// NOLINTNEXTLINE(readability-identifier-naming, readability-function-cognitive-complexity)
 inline CCSMatrix MultiplyCCS_ColumnsRange(const CCSMatrix &left, const CCSMatrix &right, int col_begin, int col_end) {
   CCSMatrix local;
   local.nrows = left.nrows;
@@ -47,26 +45,36 @@ inline CCSMatrix MultiplyCCS_ColumnsRange(const CCSMatrix &left, const CCSMatrix
     const int local_col = col - col_begin;
 
     for (int row : touched_rows) {
-      acc[static_cast<std::size_t>(row)] = 0.0;
-      mark[static_cast<std::size_t>(row)] = 0;
+      const std::size_t r = static_cast<std::size_t>(row);
+      acc[r] = 0.0;
+      mark[r] = 0;
     }
     touched_rows.clear();
 
-    for (int pb = right.col_ptr[static_cast<std::size_t>(col)]; pb < right.col_ptr[static_cast<std::size_t>(col + 1)];
-         ++pb) {
-      const int k = right.row_idx[static_cast<std::size_t>(pb)];
-      const double bkj = right.values[static_cast<std::size_t>(pb)];
+    const std::size_t c = static_cast<std::size_t>(col);
+    const int pb_begin = right.col_ptr[c];
+    const int pb_end = right.col_ptr[c + 1U];
 
-      for (int pa = left.col_ptr[static_cast<std::size_t>(k)]; pa < left.col_ptr[static_cast<std::size_t>(k + 1)];
-           ++pa) {
-        const int row = left.row_idx[static_cast<std::size_t>(pa)];
-        const double add = left.values[static_cast<std::size_t>(pa)] * bkj;
+    for (int pb = pb_begin; pb < pb_end; ++pb) {
+      const std::size_t p = static_cast<std::size_t>(pb);
+      const int k = right.row_idx[p];
+      const double bkj = right.values[p];
 
-        if (mark[static_cast<std::size_t>(row)] == 0U) {
-          mark[static_cast<std::size_t>(row)] = 1U;
+      const std::size_t kk = static_cast<std::size_t>(k);
+      const int pa_begin = left.col_ptr[kk];
+      const int pa_end = left.col_ptr[kk + 1U];
+
+      for (int pa = pa_begin; pa < pa_end; ++pa) {
+        const std::size_t a = static_cast<std::size_t>(pa);
+        const int row = left.row_idx[a];
+        const double add = left.values[a] * bkj;
+
+        const std::size_t r = static_cast<std::size_t>(row);
+        if (mark[r] == 0U) {
+          mark[r] = 1U;
           touched_rows.push_back(row);
         }
-        acc[static_cast<std::size_t>(row)] += add;
+        acc[r] += add;
       }
     }
 
@@ -163,9 +171,10 @@ inline CCSMatrix BuildFullFromGathered(const CCSMatrix &left, const CCSMatrix &r
     const int nnz_rank = all_nnz[rank_idx];
     const int cp_off = colptr_displs[rank_idx];
 
+    const std::size_t cp = static_cast<std::size_t>(cp_off);
     for (int col_idx = 0; col_idx < cols_rank; ++col_idx) {
-      const std::size_t gcol = static_cast<std::size_t>(global_col) + static_cast<std::size_t>(col_idx);
-      full.col_ptr[gcol] = nnz_base + gathered_colptr[static_cast<std::size_t>(cp_off + col_idx)];
+      const std::size_t gcol = static_cast<std::size_t>(global_col + col_idx);
+      full.col_ptr[gcol] = nnz_base + gathered_colptr[cp + static_cast<std::size_t>(col_idx)];
     }
 
     global_col += cols_rank;
@@ -194,7 +203,6 @@ bool GalkinDSparseMatMulMPI::PreProcessingImpl() {
   return true;
 }
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 bool GalkinDSparseMatMulMPI::RunImpl() {
   int rank = 0;
   int size = 1;
