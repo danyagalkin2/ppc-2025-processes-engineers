@@ -30,8 +30,6 @@ class GalkinDRingFuncTests : public ppc::util::BaseRunFuncTests<InType, OutType,
     const auto params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
     const int case_id = std::get<0>(params);
 
-    // ДВА режима: MPI и SEQ. Для SEQ считаем, что мир = 1 и всё локально.
-    // Для MPI size берём через MPI_Comm_size (только если реально под mpirun).
     const bool under_mpi = ppc::util::IsUnderMpirun();
 
     int size = 1;
@@ -40,33 +38,33 @@ class GalkinDRingFuncTests : public ppc::util::BaseRunFuncTests<InType, OutType,
       size = std::max(size, 1);
     }
 
-    // Если тест гоняется на SEQ-таске, то size считаем 1 независимо от mpirun.
-    // BaseRunFuncTests прогоняет и MPI, и SEQ. SEQ должен быть независим.
-    // Поэтому подготовим два набора входов: для SEQ фиксированные, для MPI - с учетом size.
-    // Выбор делаем в GetTestInputData(), когда знаем тип таски? Тут мы не знаем тип.
-    // Значит: делаем входы, которые валидны и в SEQ (size=1), и в MPI, где это возможно.
-    // Для "ring" SEQ тестируем только (0 -> 0).
     switch (case_id) {
       case 0: {
-        // MPI: 0 -> last; SEQ: 0 -> 0
         input_data_ = InType{.src = 0, .dest = under_mpi ? (size - 1) : 0, .count = 16};
         break;
       }
       case 1: {
-        // MPI: 0 -> neighbor (если size>1), иначе 0; SEQ: 0 -> 0
         const int dest = (under_mpi && size > 1) ? 1 : 0;
         input_data_ = InType{.src = 0, .dest = dest, .count = 8};
         break;
       }
       case 2: {
-        // MPI: mid -> 0; SEQ: 0 -> 0
         const int src = (under_mpi ? (size / 2) : 0);
         input_data_ = InType{.src = src, .dest = 0, .count = 32};
         break;
       }
       case 3: {
-        // src == dest разрешено, и в SEQ, и в MPI.
         input_data_ = InType{.src = 0, .dest = 0, .count = 10};
+        break;
+      }
+      case 4: {
+        const int dest = (under_mpi && size >= 3) ? (size / 2) : 0;
+        input_data_ = InType{.src = 0, .dest = dest, .count = 64};
+        break;
+      }
+      case 5: {
+        const int src = (under_mpi && size >= 2) ? (size - 1) : 0;
+        input_data_ = InType{.src = src, .dest = 0, .count = 12};
         break;
       }
       default: {
@@ -90,15 +88,17 @@ class GalkinDRingFuncTests : public ppc::util::BaseRunFuncTests<InType, OutType,
 
 namespace {
 
-const std::array<TestType, 4> kFunctionalParamsMpi = {
+const std::array<TestType, 6> kFunctionalParamsMpi = {
     std::make_tuple(0, "0_to_last"),
     std::make_tuple(1, "0_to_neighbor"),
     std::make_tuple(2, "mid_to_0"),
     std::make_tuple(3, "src_equals_dest"),
+    std::make_tuple(4, "0_to_half_long_route"),
+    std::make_tuple(5, "wrap_last_to_0"),
 };
 
 const std::array<TestType, 1> kFunctionalParamsSeq = {
-    std::make_tuple(3, "src_equals_dest"),  // SEQ: только 0->0
+    std::make_tuple(3, "src_equals_dest"),
 };
 
 const auto kTaskMatrix =
@@ -156,7 +156,6 @@ TEST(GalkinDRingValidation, RejectsInvalidSrcMpi) {
 }
 
 TEST(GalkinDRingValidation, RejectsInvalidDestSeq) {
-  // SEQ: мир = 1, значит dest=1 всегда невалиден.
   InType in{.src = 0, .dest = 1, .count = 10};
   GalkinDRingSEQ task(in);
   EXPECT_FALSE(task.Validation());
@@ -171,7 +170,7 @@ TEST(GalkinDRingValidation, RejectsInvalidDestMpi) {
   MPI_Comm_size(MPI_COMM_WORLD, &size);
   size = std::max(size, 1);
 
-  InType in{.src = 0, .dest = size, .count = 10};  // вне диапазона [0..size-1]
+  InType in{.src = 0, .dest = size, .count = 10};
   GalkinDRingMPI task(in);
   EXPECT_FALSE(task.Validation());
 }
@@ -245,6 +244,55 @@ TEST(GalkinDRingPipeline, MpiTaskCanBeReusedAcrossRuns) {
 
   GalkinDRingMPI task(first);
   RunTaskTwice(task, first, second);
+}
+
+TEST(GalkinDRingRunImplBranches, MpiRunReturnsZeroWhenSrcNegativeEvenIfValidationFails) {
+  if (!ppc::util::IsUnderMpirun()) {
+    GTEST_SKIP();
+  }
+
+  InType in{.src = -1, .dest = 0, .count = 10};
+  GalkinDRingMPI task(in);
+
+  EXPECT_FALSE(task.Validation());
+  EXPECT_TRUE(task.PreProcessing());
+  EXPECT_TRUE(task.Run());
+  EXPECT_TRUE(task.PostProcessing());
+  EXPECT_EQ(task.GetOutput(), 0);
+}
+
+TEST(GalkinDRingRunImplBranches, MpiRunReturnsZeroWhenDestOutOfRangeEvenIfValidationFails) {
+  if (!ppc::util::IsUnderMpirun()) {
+    GTEST_SKIP();
+  }
+
+  int size = 1;
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  size = std::max(size, 1);
+
+  InType in{.src = 0, .dest = size, .count = 10};
+  GalkinDRingMPI task(in);
+
+  EXPECT_FALSE(task.Validation());
+  EXPECT_TRUE(task.PreProcessing());
+  EXPECT_TRUE(task.Run());
+  EXPECT_TRUE(task.PostProcessing());
+  EXPECT_EQ(task.GetOutput(), 0);
+}
+
+TEST(GalkinDRingRunImplBranches, MpiRunReturnsOneWhenSrcEqualsDestShortCircuit) {
+  if (!ppc::util::IsUnderMpirun()) {
+    GTEST_SKIP();
+  }
+
+  InType in{.src = 0, .dest = 0, .count = 7};
+  GalkinDRingMPI task(in);
+
+  EXPECT_TRUE(task.Validation());
+  EXPECT_TRUE(task.PreProcessing());
+  EXPECT_TRUE(task.Run());
+  EXPECT_TRUE(task.PostProcessing());
+  EXPECT_EQ(task.GetOutput(), 1);
 }
 
 }  // namespace
