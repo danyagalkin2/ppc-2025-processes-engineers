@@ -30,7 +30,7 @@ struct XorShift64 {
     }
   }
 
-  std::uint64_t next_u64() {
+  std::uint64_t NextU64() {
     std::uint64_t z = x;
     z ^= (z >> 12);
     z ^= (z << 25);
@@ -39,15 +39,15 @@ struct XorShift64 {
     return z * 2685821657736338717ULL;
   }
 
-  double next_double(double lo, double hi) {
-    const std::uint64_t r = next_u64() >> 11;
+  double NextDouble(double lo, double hi) {
+    const std::uint64_t r = NextU64() >> 11;
     const double u = static_cast<double>(r) / static_cast<double>((1ULL << 53) - 1ULL);
     return lo + (hi - lo) * u;
   }
 
-  int next_int(int lo, int hi) {
-    const std::uint64_t r = next_u64();
-    const std::uint64_t span = static_cast<std::uint64_t>(hi - lo + 1);
+  int NextInt(int lo, int hi) {
+    const std::uint64_t r = NextU64();
+    const std::uint64_t span = static_cast<std::uint64_t>(hi) - static_cast<std::uint64_t>(lo) + 1ULL;
     return lo + static_cast<int>(r % span);
   }
 };
@@ -74,7 +74,7 @@ CCSMatrix GenerateRandomCCS(int nrows, int ncols, double dens, std::uint64_t see
     touched_rows.reserve(static_cast<std::size_t>(target_per_col));
 
     while (static_cast<int>(rows.size()) < target_per_col) {
-      const int row = rng.next_int(0, nrows - 1);
+      const int row = rng.NextInt(0, nrows - 1);
       if (used[static_cast<std::size_t>(row)] == 0U) {
         used[static_cast<std::size_t>(row)] = 1U;
         touched_rows.push_back(row);
@@ -90,7 +90,7 @@ CCSMatrix GenerateRandomCCS(int nrows, int ncols, double dens, std::uint64_t see
 
     for (int row : rows) {
       matrix.row_idx.push_back(row);
-      double value = rng.next_double(-1.0, 1.0);
+      double value = rng.NextDouble(-1.0, 1.0);
       if (std::fabs(value) < 1e-6) {
         value = (value < 0.0 ? -1.0 : 1.0) * 1e-3;
       }
@@ -107,11 +107,11 @@ double ChecksumCCS(const CCSMatrix &matrix) {
   double sum = 0.0;
 
   for (int col = 0; col < matrix.ncols; ++col) {
-    const int begin = matrix.col_ptr[col];
-    const int end = matrix.col_ptr[col + 1];
+    const int begin = matrix.col_ptr[static_cast<std::size_t>(col)];
+    const int end = matrix.col_ptr[static_cast<std::size_t>(col + 1)];
     for (int pos = begin; pos < end; ++pos) {
-      const int row = matrix.row_idx[pos];
-      const double value = matrix.values[pos];
+      const int row = matrix.row_idx[static_cast<std::size_t>(pos)];
+      const double value = matrix.values[static_cast<std::size_t>(pos)];
       sum += value * (1.0 + 0.001 * (row + 1)) * (1.0 + 0.0001 * (col + 1));
     }
   }

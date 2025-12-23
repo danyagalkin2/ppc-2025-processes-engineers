@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <ranges>
+#include <utility>
 #include <vector>
 
 namespace galkin_d_sparse_matrix_mul {
@@ -27,6 +29,7 @@ bool GalkinDSparseMatMulSEQ::PreProcessingImpl() {
   return true;
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 bool GalkinDSparseMatMulSEQ::RunImpl() {
   if (!ValidationImpl()) {
     GetOutput() = OutType{};
@@ -53,13 +56,15 @@ bool GalkinDSparseMatMulSEQ::RunImpl() {
     }
     touched_rows.clear();
 
-    for (int pb = right.col_ptr[col]; pb < right.col_ptr[col + 1]; ++pb) {
-      const int k = right.row_idx[pb];
-      const double bkj = right.values[pb];
+    for (int pb = right.col_ptr[static_cast<std::size_t>(col)]; pb < right.col_ptr[static_cast<std::size_t>(col + 1)];
+         ++pb) {
+      const int k = right.row_idx[static_cast<std::size_t>(pb)];
+      const double bkj = right.values[static_cast<std::size_t>(pb)];
 
-      for (int pa = left.col_ptr[k]; pa < left.col_ptr[k + 1]; ++pa) {
-        const int row = left.row_idx[pa];
-        const double add = left.values[pa] * bkj;
+      for (int pa = left.col_ptr[static_cast<std::size_t>(k)]; pa < left.col_ptr[static_cast<std::size_t>(k + 1)];
+           ++pa) {
+        const int row = left.row_idx[static_cast<std::size_t>(pa)];
+        const double add = left.values[static_cast<std::size_t>(pa)] * bkj;
 
         if (mark[static_cast<std::size_t>(row)] == 0U) {
           mark[static_cast<std::size_t>(row)] = 1U;
@@ -69,7 +74,7 @@ bool GalkinDSparseMatMulSEQ::RunImpl() {
       }
     }
 
-    std::sort(touched_rows.begin(), touched_rows.end());
+    std::ranges::sort(touched_rows);
     for (int row : touched_rows) {
       const double value = acc[static_cast<std::size_t>(row)];
       if (std::fabs(value) > kEpsDrop) {

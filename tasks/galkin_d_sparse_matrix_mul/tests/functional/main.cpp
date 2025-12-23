@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstddef>
 #include <memory>
+#include <ranges>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -29,16 +30,16 @@ std::vector<double> DenseMatMul(const std::vector<double> &left, int nrows, int 
   for (int row = 0; row < nrows; ++row) {
     for (int kk = 0; kk < shared_dim; ++kk) {
       const std::size_t left_idx =
-          static_cast<std::size_t>(row) * static_cast<std::size_t>(shared_dim) + static_cast<std::size_t>(kk);
+          (static_cast<std::size_t>(row) * static_cast<std::size_t>(shared_dim)) + static_cast<std::size_t>(kk);
       const double a_val = left[left_idx];
       if (std::fabs(a_val) < 1e-15) {
         continue;
       }
       for (int col = 0; col < ncols; ++col) {
         const std::size_t out_idx =
-            static_cast<std::size_t>(row) * static_cast<std::size_t>(ncols) + static_cast<std::size_t>(col);
+            (static_cast<std::size_t>(row) * static_cast<std::size_t>(ncols)) + static_cast<std::size_t>(col);
         const std::size_t right_idx =
-            static_cast<std::size_t>(kk) * static_cast<std::size_t>(ncols) + static_cast<std::size_t>(col);
+            (static_cast<std::size_t>(kk) * static_cast<std::size_t>(ncols)) + static_cast<std::size_t>(col);
         out[out_idx] += a_val * right[right_idx];
       }
     }
@@ -80,7 +81,7 @@ CCSMatrix MakeDiagonalCCS(const std::vector<double> &diag) {
   return diagonal;
 }
 
-CCSMatrix MakeSmallManualA_3x2() {
+CCSMatrix MakeSmallManualA3x2() {
   CCSMatrix a;
   a.nrows = 3;
   a.ncols = 2;
@@ -90,7 +91,7 @@ CCSMatrix MakeSmallManualA_3x2() {
   return a;
 }
 
-CCSMatrix MakeSmallManualB_2x3() {
+CCSMatrix MakeSmallManualB2x3() {
   CCSMatrix b;
   b.nrows = 2;
   b.ncols = 3;
@@ -138,8 +139,8 @@ class GalkinDSparseMatMulFuncTests : public ppc::util::BaseRunFuncTests<InType, 
         break;
       }
       case 2: {
-        input_data_.a = MakeSmallManualA_3x2();
-        input_data_.b = MakeSmallManualB_2x3();
+        input_data_.a = MakeSmallManualA3x2();
+        input_data_.b = MakeSmallManualB2x3();
 
         const auto dense_a = CCSToDense(input_data_.a);
         const auto dense_b = CCSToDense(input_data_.b);
@@ -233,8 +234,8 @@ void ExpectFullPipelineSuccess(const InType &in, const OutType &expected) {
 
 TEST(GalkinDSparseMatMulStandalone, SeqPipelineStandardCase) {
   InType in;
-  in.a = MakeSmallManualA_3x2();
-  in.b = MakeSmallManualB_2x3();
+  in.a = MakeSmallManualA3x2();
+  in.b = MakeSmallManualB2x3();
 
   const auto dense_a = CCSToDense(in.a);
   const auto dense_b = CCSToDense(in.b);
@@ -250,8 +251,8 @@ TEST(GalkinDSparseMatMulStandalone, MpiPipelineStandardCase) {
   }
 
   InType in;
-  in.a = MakeSmallManualA_3x2();
-  in.b = MakeSmallManualB_2x3();
+  in.a = MakeSmallManualA3x2();
+  in.b = MakeSmallManualB2x3();
 
   const auto dense_a = CCSToDense(in.a);
   const auto dense_b = CCSToDense(in.b);
@@ -331,8 +332,8 @@ TEST(GalkinDSparseMatMulPipeline, SeqTaskCanBeReusedAcrossRuns) {
   const OutType exp1 = DenseToCCSSorted(dense_c1, 4, 4);
 
   InType second;
-  second.a = MakeSmallManualA_3x2();
-  second.b = MakeSmallManualB_2x3();
+  second.a = MakeSmallManualA3x2();
+  second.b = MakeSmallManualB2x3();
 
   const auto dense_a2 = CCSToDense(second.a);
   const auto dense_b2 = CCSToDense(second.b);
@@ -358,8 +359,8 @@ TEST(GalkinDSparseMatMulPipeline, MpiTaskCanBeReusedAcrossRuns) {
   const OutType exp1 = DenseToCCSSorted(dense_c1, 4, 4);
 
   InType second;
-  second.a = MakeSmallManualA_3x2();
-  second.b = MakeSmallManualB_2x3();
+  second.a = MakeSmallManualA3x2();
+  second.b = MakeSmallManualB2x3();
 
   const auto dense_a2 = CCSToDense(second.a);
   const auto dense_b2 = CCSToDense(second.b);

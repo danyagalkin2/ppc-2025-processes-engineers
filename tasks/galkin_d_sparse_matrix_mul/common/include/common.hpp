@@ -1,7 +1,9 @@
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <ranges>
 #include <vector>
 
 #include "task/include/task.hpp"
@@ -42,15 +44,13 @@ inline bool IsValidCCS(const CCSMatrix &matrix) {
   }
 
   for (int col = 0; col < matrix.ncols; ++col) {
-    if (matrix.col_ptr[col] > matrix.col_ptr[col + 1]) {
+    if (matrix.col_ptr[static_cast<std::size_t>(col)] > matrix.col_ptr[static_cast<std::size_t>(col + 1)]) {
       return false;
     }
   }
 
-  for (int row : matrix.row_idx) {
-    if (row < 0 || row >= matrix.nrows) {
-      return false;
-    }
+  if (!std::ranges::all_of(matrix.row_idx, [&](int row) { return row >= 0 && row < matrix.nrows; })) {
+    return false;
   }
 
   return true;
@@ -65,11 +65,12 @@ inline std::vector<double> CCSToDense(const CCSMatrix &matrix) {
   std::vector<double> dense(total, 0.0);
 
   for (int col = 0; col < matrix.ncols; ++col) {
-    for (int pos = matrix.col_ptr[col]; pos < matrix.col_ptr[col + 1]; ++pos) {
-      const int row = matrix.row_idx[pos];
+    for (int pos = matrix.col_ptr[static_cast<std::size_t>(col)];
+         pos < matrix.col_ptr[static_cast<std::size_t>(col + 1)]; ++pos) {
+      const int row = matrix.row_idx[static_cast<std::size_t>(pos)];
       const std::size_t idx =
-          static_cast<std::size_t>(row) * static_cast<std::size_t>(matrix.ncols) + static_cast<std::size_t>(col);
-      dense[idx] += matrix.values[pos];
+          (static_cast<std::size_t>(row) * static_cast<std::size_t>(matrix.ncols)) + static_cast<std::size_t>(col);
+      dense[idx] += matrix.values[static_cast<std::size_t>(pos)];
     }
   }
 
@@ -85,7 +86,7 @@ inline CCSMatrix DenseToCCSSorted(const std::vector<double> &dense, int nrows, i
   for (int col = 0; col < ncols; ++col) {
     for (int row = 0; row < nrows; ++row) {
       const std::size_t idx =
-          static_cast<std::size_t>(row) * static_cast<std::size_t>(ncols) + static_cast<std::size_t>(col);
+          (static_cast<std::size_t>(row) * static_cast<std::size_t>(ncols)) + static_cast<std::size_t>(col);
       const double value = dense[idx];
       if (std::fabs(value) > eps) {
         matrix.row_idx.push_back(row);

@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <ranges>
+#include <utility>
 #include <vector>
 
 namespace galkin_d_sparse_matrix_mul {
@@ -29,6 +31,7 @@ inline void SplitColumns(int ncols, int size, int rank, int *col_begin, int *col
   *col_end = start + my;
 }
 
+// NOLINTNEXTLINE(readability-identifier-naming, readability-function-cognitive-complexity)
 inline CCSMatrix MultiplyCCS_ColumnsRange(const CCSMatrix &left, const CCSMatrix &right, int col_begin, int col_end) {
   CCSMatrix local;
   local.nrows = left.nrows;
@@ -49,13 +52,15 @@ inline CCSMatrix MultiplyCCS_ColumnsRange(const CCSMatrix &left, const CCSMatrix
     }
     touched_rows.clear();
 
-    for (int pb = right.col_ptr[col]; pb < right.col_ptr[col + 1]; ++pb) {
-      const int k = right.row_idx[pb];
-      const double bkj = right.values[pb];
+    for (int pb = right.col_ptr[static_cast<std::size_t>(col)]; pb < right.col_ptr[static_cast<std::size_t>(col + 1)];
+         ++pb) {
+      const int k = right.row_idx[static_cast<std::size_t>(pb)];
+      const double bkj = right.values[static_cast<std::size_t>(pb)];
 
-      for (int pa = left.col_ptr[k]; pa < left.col_ptr[k + 1]; ++pa) {
-        const int row = left.row_idx[pa];
-        const double add = left.values[pa] * bkj;
+      for (int pa = left.col_ptr[static_cast<std::size_t>(k)]; pa < left.col_ptr[static_cast<std::size_t>(k + 1)];
+           ++pa) {
+        const int row = left.row_idx[static_cast<std::size_t>(pa)];
+        const double add = left.values[static_cast<std::size_t>(pa)] * bkj;
 
         if (mark[static_cast<std::size_t>(row)] == 0U) {
           mark[static_cast<std::size_t>(row)] = 1U;
@@ -65,7 +70,7 @@ inline CCSMatrix MultiplyCCS_ColumnsRange(const CCSMatrix &left, const CCSMatrix
       }
     }
 
-    std::sort(touched_rows.begin(), touched_rows.end());
+    std::ranges::sort(touched_rows);
     for (int row : touched_rows) {
       const double value = acc[static_cast<std::size_t>(row)];
       if (std::fabs(value) > kEpsDrop) {
@@ -130,9 +135,9 @@ inline GatherLayout MakeGatherLayout(const std::vector<int> &counts) {
   layout.displs.resize(counts.size(), 0);
 
   int sum = 0;
-  for (std::size_t r = 0; r < counts.size(); ++r) {
-    layout.displs[r] = sum;
-    sum += counts[r];
+  for (std::size_t rank_idx = 0; rank_idx < counts.size(); ++rank_idx) {
+    layout.displs[rank_idx] = sum;
+    sum += counts[rank_idx];
   }
   layout.total = sum;
   return layout;
@@ -153,17 +158,18 @@ inline CCSMatrix BuildFullFromGathered(const CCSMatrix &left, const CCSMatrix &r
   int global_col = 0;
   int nnz_base = 0;
 
-  for (std::size_t r = 0; r < all_cols.size(); ++r) {
-    const int cols_r = all_cols[r];
-    const int nnz_r = all_nnz[r];
-    const int cp_off = colptr_displs[r];
+  for (std::size_t rank_idx = 0; rank_idx < all_cols.size(); ++rank_idx) {
+    const int cols_rank = all_cols[rank_idx];
+    const int nnz_rank = all_nnz[rank_idx];
+    const int cp_off = colptr_displs[rank_idx];
 
-    for (int c = 0; c < cols_r; ++c) {
-      full.col_ptr[static_cast<std::size_t>(global_col + c)] = nnz_base + gathered_colptr[cp_off + c];
+    for (int col_idx = 0; col_idx < cols_rank; ++col_idx) {
+      const std::size_t gcol = static_cast<std::size_t>(global_col) + static_cast<std::size_t>(col_idx);
+      full.col_ptr[gcol] = nnz_base + gathered_colptr[static_cast<std::size_t>(cp_off + col_idx)];
     }
 
-    global_col += cols_r;
-    nnz_base += nnz_r;
+    global_col += cols_rank;
+    nnz_base += nnz_rank;
   }
 
   full.col_ptr[static_cast<std::size_t>(full.ncols)] = static_cast<int>(full.values.size());
@@ -188,6 +194,7 @@ bool GalkinDSparseMatMulMPI::PreProcessingImpl() {
   return true;
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 bool GalkinDSparseMatMulMPI::RunImpl() {
   int rank = 0;
   int size = 1;
@@ -210,7 +217,6 @@ bool GalkinDSparseMatMulMPI::RunImpl() {
   const int my_colptr_len = my_cols + 1;
 
   CCSMatrix local = MultiplyCCS_ColumnsRange(left, right, col_begin, col_end);
-
   const int my_nnz = static_cast<int>(local.values.size());
 
   std::vector<int> all_cols;
@@ -218,9 +224,9 @@ bool GalkinDSparseMatMulMPI::RunImpl() {
   std::vector<int> all_colptr_len;
 
   if (rank == 0) {
-    all_cols.resize(size, 0);
-    all_nnz.resize(size, 0);
-    all_colptr_len.resize(size, 0);
+    all_cols.resize(static_cast<std::size_t>(size), 0);
+    all_nnz.resize(static_cast<std::size_t>(size), 0);
+    all_colptr_len.resize(static_cast<std::size_t>(size), 0);
   }
 
   MPI_Gather(&my_cols, 1, MPI_INT, rank == 0 ? all_cols.data() : nullptr, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -233,7 +239,7 @@ bool GalkinDSparseMatMulMPI::RunImpl() {
 
   if (rank == 0) {
     colptr_recvcounts = all_colptr_len;
-    auto layout = MakeGatherLayout(colptr_recvcounts);
+    const auto layout = MakeGatherLayout(colptr_recvcounts);
     colptr_displs = layout.displs;
     gathered_colptr.assign(static_cast<std::size_t>(layout.total), 0);
   }
@@ -249,7 +255,7 @@ bool GalkinDSparseMatMulMPI::RunImpl() {
 
   if (rank == 0) {
     nnz_recvcounts = all_nnz;
-    auto layout = MakeGatherLayout(nnz_recvcounts);
+    const auto layout = MakeGatherLayout(nnz_recvcounts);
     nnz_displs = layout.displs;
     gathered_row.assign(static_cast<std::size_t>(layout.total), 0);
     gathered_val.assign(static_cast<std::size_t>(layout.total), 0.0);
