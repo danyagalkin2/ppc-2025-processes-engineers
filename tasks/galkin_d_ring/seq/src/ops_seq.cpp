@@ -13,7 +13,6 @@ GalkinDRingSEQ::GalkinDRingSEQ(const InType &in) {
 bool GalkinDRingSEQ::ValidationImpl() {
   const auto &in = GetInput();
 
-  // SEQ: модель одного процесса
   const bool ok_count = (in.count > 0);
   const bool ok_src = (in.src == 0);
   const bool ok_dest = (in.dest == 0);
@@ -27,7 +26,6 @@ bool GalkinDRingSEQ::PreProcessingImpl() {
 }
 
 bool GalkinDRingSEQ::RunImpl() {
-  // Заглушка SEQ: считаем, что всё прошло
   GetOutput() = 1;
   return true;
 }
