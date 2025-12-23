@@ -6,6 +6,8 @@
 #include <utility>
 #include <vector>
 
+#include "galkin_d_sparse_matrix_mul/common/include/common.hpp"  // include-cleaner
+
 namespace galkin_d_sparse_matrix_mul {
 
 namespace {
@@ -50,31 +52,31 @@ bool GalkinDSparseMatMulSEQ::RunImpl() {
 
   for (int col = 0; col < right.ncols; ++col) {
     for (int row : touched_rows) {
-      const std::size_t r = static_cast<std::size_t>(row);
+      const auto r = static_cast<std::size_t>(row);
       acc[r] = 0.0;
-      mark[r] = 0;
+      mark[r] = 0U;
     }
     touched_rows.clear();
 
-    const std::size_t c = static_cast<std::size_t>(col);
+    const auto c = static_cast<std::size_t>(col);
     const int pb_begin = right.col_ptr[c];
     const int pb_end = right.col_ptr[c + 1U];
 
     for (int pb = pb_begin; pb < pb_end; ++pb) {
-      const std::size_t p = static_cast<std::size_t>(pb);
+      const auto p = static_cast<std::size_t>(pb);
       const int k = right.row_idx[p];
       const double bkj = right.values[p];
 
-      const std::size_t kk = static_cast<std::size_t>(k);
+      const auto kk = static_cast<std::size_t>(k);
       const int pa_begin = left.col_ptr[kk];
       const int pa_end = left.col_ptr[kk + 1U];
 
       for (int pa = pa_begin; pa < pa_end; ++pa) {
-        const std::size_t a = static_cast<std::size_t>(pa);
+        const auto a = static_cast<std::size_t>(pa);
         const int row = left.row_idx[a];
         const double add = left.values[a] * bkj;
 
-        const std::size_t r = static_cast<std::size_t>(row);
+        const auto r = static_cast<std::size_t>(row);
         if (mark[r] == 0U) {
           mark[r] = 1U;
           touched_rows.push_back(row);

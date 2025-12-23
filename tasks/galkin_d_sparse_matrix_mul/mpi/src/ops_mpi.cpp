@@ -8,6 +8,8 @@
 #include <utility>
 #include <vector>
 
+#include "galkin_d_sparse_matrix_mul/common/include/common.hpp"
+
 namespace galkin_d_sparse_matrix_mul {
 
 namespace {
@@ -30,7 +32,26 @@ inline void SplitColumns(int ncols, int size, int rank, int *col_begin, int *col
   *col_end = start + my;
 }
 
-inline CCSMatrix MultiplyCCS_ColumnsRange(const CCSMatrix &left, const CCSMatrix &right, int col_begin, int col_end) {
+inline void ResetTouched(std::vector<double> &acc, std::vector<unsigned char> &mark, std::vector<int> &touched_rows) {
+  for (int row : touched_rows) {
+    const auto r = static_cast<std::size_t>(row);
+    acc[r] = 0.0;
+    mark[r] = 0U;
+  }
+  touched_rows.clear();
+}
+
+inline void AddToAccumulator(int row, double add, std::vector<double> &acc, std::vector<unsigned char> &mark,
+                             std::vector<int> &touched_rows) {
+  const auto r = static_cast<std::size_t>(row);
+  if (mark[r] == 0U) {
+    mark[r] = 1U;
+    touched_rows.push_back(row);
+  }
+  acc[r] += add;
+}
+
+inline CCSMatrix MultiplyCcsColumnsRange(const CCSMatrix &left, const CCSMatrix &right, int col_begin, int col_end) {
   CCSMatrix local;
   local.nrows = left.nrows;
   local.ncols = col_end - col_begin;
@@ -43,38 +64,25 @@ inline CCSMatrix MultiplyCCS_ColumnsRange(const CCSMatrix &left, const CCSMatrix
 
   for (int col = col_begin; col < col_end; ++col) {
     const int local_col = col - col_begin;
+    ResetTouched(acc, mark, touched_rows);
 
-    for (int row : touched_rows) {
-      const std::size_t r = static_cast<std::size_t>(row);
-      acc[r] = 0.0;
-      mark[r] = 0;
-    }
-    touched_rows.clear();
-
-    const std::size_t c = static_cast<std::size_t>(col);
+    const auto c = static_cast<std::size_t>(col);
     const int pb_begin = right.col_ptr[c];
     const int pb_end = right.col_ptr[c + 1U];
 
     for (int pb = pb_begin; pb < pb_end; ++pb) {
-      const std::size_t p = static_cast<std::size_t>(pb);
+      const auto p = static_cast<std::size_t>(pb);
       const int k = right.row_idx[p];
       const double bkj = right.values[p];
 
-      const std::size_t kk = static_cast<std::size_t>(k);
+      const auto kk = static_cast<std::size_t>(k);
       const int pa_begin = left.col_ptr[kk];
       const int pa_end = left.col_ptr[kk + 1U];
 
       for (int pa = pa_begin; pa < pa_end; ++pa) {
-        const std::size_t a = static_cast<std::size_t>(pa);
+        const auto a = static_cast<std::size_t>(pa);
         const int row = left.row_idx[a];
-        const double add = left.values[a] * bkj;
-
-        const std::size_t r = static_cast<std::size_t>(row);
-        if (mark[r] == 0U) {
-          mark[r] = 1U;
-          touched_rows.push_back(row);
-        }
-        acc[r] += add;
+        AddToAccumulator(row, left.values[a] * bkj, acc, mark, touched_rows);
       }
     }
 
@@ -171,9 +179,9 @@ inline CCSMatrix BuildFullFromGathered(const CCSMatrix &left, const CCSMatrix &r
     const int nnz_rank = all_nnz[rank_idx];
     const int cp_off = colptr_displs[rank_idx];
 
-    const std::size_t cp = static_cast<std::size_t>(cp_off);
+    const auto cp = static_cast<std::size_t>(cp_off);
     for (int col_idx = 0; col_idx < cols_rank; ++col_idx) {
-      const std::size_t gcol = static_cast<std::size_t>(global_col + col_idx);
+      const auto gcol = static_cast<std::size_t>(global_col) + static_cast<std::size_t>(col_idx);
       full.col_ptr[gcol] = nnz_base + gathered_colptr[cp + static_cast<std::size_t>(col_idx)];
     }
 
@@ -224,7 +232,7 @@ bool GalkinDSparseMatMulMPI::RunImpl() {
   const int my_cols = col_end - col_begin;
   const int my_colptr_len = my_cols + 1;
 
-  CCSMatrix local = MultiplyCCS_ColumnsRange(left, right, col_begin, col_end);
+  CCSMatrix local = MultiplyCcsColumnsRange(left, right, col_begin, col_end);
   const int my_nnz = static_cast<int>(local.values.size());
 
   std::vector<int> all_cols;

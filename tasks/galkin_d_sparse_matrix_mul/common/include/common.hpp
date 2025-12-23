@@ -31,7 +31,7 @@ inline bool IsValidCCS(const CCSMatrix &matrix) {
     return false;
   }
 
-  const std::size_t expected_col_ptr = static_cast<std::size_t>(matrix.ncols) + 1U;
+  const auto expected_col_ptr = static_cast<std::size_t>(matrix.ncols) + 1U;
   if (matrix.col_ptr.size() != expected_col_ptr) {
     return false;
   }
@@ -43,13 +43,15 @@ inline bool IsValidCCS(const CCSMatrix &matrix) {
   }
 
   for (int col = 0; col < matrix.ncols; ++col) {
-    const std::size_t c = static_cast<std::size_t>(col);
+    const auto c = static_cast<std::size_t>(col);
     if (matrix.col_ptr[c] > matrix.col_ptr[c + 1U]) {
       return false;
     }
   }
 
-  return std::ranges::all_of(matrix.row_idx, [&](int row) { return row >= 0 && row < matrix.nrows; });
+  // без std::ranges::all_of — чтобы меньше зависеть от "ranges" в IDE/настройках
+  return std::all_of(matrix.row_idx.begin(), matrix.row_idx.end(),
+                     [&](int row) { return row >= 0 && row < matrix.nrows; });
 }
 
 inline bool IsMultipliable(const CCSMatrix &left, const CCSMatrix &right) {
@@ -57,18 +59,18 @@ inline bool IsMultipliable(const CCSMatrix &left, const CCSMatrix &right) {
 }
 
 inline std::vector<double> CCSToDense(const CCSMatrix &matrix) {
-  const std::size_t total = static_cast<std::size_t>(matrix.nrows) * static_cast<std::size_t>(matrix.ncols);
+  const auto total = static_cast<std::size_t>(matrix.nrows) * static_cast<std::size_t>(matrix.ncols);
   std::vector<double> dense(total, 0.0);
 
   for (int col = 0; col < matrix.ncols; ++col) {
-    const std::size_t c = static_cast<std::size_t>(col);
+    const auto c = static_cast<std::size_t>(col);
     const int begin = matrix.col_ptr[c];
     const int end = matrix.col_ptr[c + 1U];
 
     for (int pos = begin; pos < end; ++pos) {
-      const std::size_t p = static_cast<std::size_t>(pos);
+      const auto p = static_cast<std::size_t>(pos);
       const int row = matrix.row_idx[p];
-      const std::size_t idx = (static_cast<std::size_t>(row) * static_cast<std::size_t>(matrix.ncols)) + c;
+      const auto idx = (static_cast<std::size_t>(row) * static_cast<std::size_t>(matrix.ncols)) + c;
       dense[idx] += matrix.values[p];
     }
   }
@@ -83,9 +85,9 @@ inline CCSMatrix DenseToCCSSorted(const std::vector<double> &dense, int nrows, i
   matrix.col_ptr.resize(static_cast<std::size_t>(ncols) + 1U, 0);
 
   for (int col = 0; col < ncols; ++col) {
-    const std::size_t c = static_cast<std::size_t>(col);
+    const auto c = static_cast<std::size_t>(col);
     for (int row = 0; row < nrows; ++row) {
-      const std::size_t idx = (static_cast<std::size_t>(row) * static_cast<std::size_t>(ncols)) + c;
+      const auto idx = (static_cast<std::size_t>(row) * static_cast<std::size_t>(ncols)) + c;
       const double value = dense[idx];
       if (std::fabs(value) > eps) {
         matrix.row_idx.push_back(row);
