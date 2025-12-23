@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <ranges>
 #include <utility>
 #include <vector>
 
@@ -193,6 +194,124 @@ inline CCSMatrix BuildFullFromGathered(const CCSMatrix &left, const CCSMatrix &r
   return full;
 }
 
+// --- helpers чтобы RunImpl был "плоским" (и clang-tidy не ругался) ---
+
+struct RootMetaRecv {
+  int *cols = nullptr;
+  int *nnz = nullptr;
+  int *colptr_len = nullptr;
+};
+
+inline RootMetaRecv MakeRootMetaRecv(int rank, std::vector<int> *all_cols, std::vector<int> *all_nnz,
+                                     std::vector<int> *all_colptr_len) {
+  RootMetaRecv r;
+  if (rank == 0) {
+    r.cols = all_cols->data();
+    r.nnz = all_nnz->data();
+    r.colptr_len = all_colptr_len->data();
+  }
+  return r;
+}
+
+inline void GatherMetaToRoot(int rank, int size, int my_cols, int my_nnz, int my_colptr_len, std::vector<int> *all_cols,
+                             std::vector<int> *all_nnz, std::vector<int> *all_colptr_len) {
+  if (rank == 0) {
+    all_cols->assign(static_cast<std::size_t>(size), 0);
+    all_nnz->assign(static_cast<std::size_t>(size), 0);
+    all_colptr_len->assign(static_cast<std::size_t>(size), 0);
+  }
+
+  const auto recv = MakeRootMetaRecv(rank, all_cols, all_nnz, all_colptr_len);
+
+  MPI_Gather(&my_cols, 1, MPI_INT, recv.cols, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Gather(&my_nnz, 1, MPI_INT, recv.nnz, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Gather(&my_colptr_len, 1, MPI_INT, recv.colptr_len, 1, MPI_INT, 0, MPI_COMM_WORLD);
+}
+
+struct RootGathervRecvI32 {
+  int *data = nullptr;
+  int *counts = nullptr;
+  int *displs = nullptr;
+};
+
+struct RootGathervRecvF64 {
+  double *data = nullptr;
+  int *counts = nullptr;
+  int *displs = nullptr;
+};
+
+inline RootGathervRecvI32 MakeRootRecvI32(int rank, std::vector<int> *buf, std::vector<int> *counts,
+                                          std::vector<int> *displs) {
+  RootGathervRecvI32 r;
+  if (rank == 0) {
+    r.data = buf->data();
+    r.counts = counts->data();
+    r.displs = displs->data();
+  }
+  return r;
+}
+
+inline RootGathervRecvF64 MakeRootRecvF64(int rank, std::vector<double> *buf, std::vector<int> *counts,
+                                          std::vector<int> *displs) {
+  RootGathervRecvF64 r;
+  if (rank == 0) {
+    r.data = buf->data();
+    r.counts = counts->data();
+    r.displs = displs->data();
+  }
+  return r;
+}
+
+inline void GatherColPtrToRoot(int rank, const CCSMatrix &local, int my_colptr_len,
+                               const std::vector<int> &all_colptr_len, std::vector<int> *gathered_colptr,
+                               std::vector<int> *colptr_displs, std::vector<int> *colptr_recvcounts) {
+  if (rank == 0) {
+    *colptr_recvcounts = all_colptr_len;
+    const auto layout = MakeGatherLayout(*colptr_recvcounts);
+    *colptr_displs = layout.displs;
+    gathered_colptr->assign(static_cast<std::size_t>(layout.total), 0);
+  }
+
+  const auto recv = MakeRootRecvI32(rank, gathered_colptr, colptr_recvcounts, colptr_displs);
+
+  MPI_Gatherv(local.col_ptr.data(), my_colptr_len, MPI_INT, recv.data, recv.counts, recv.displs, MPI_INT, 0,
+              MPI_COMM_WORLD);
+}
+
+inline void GatherNnzToRoot(int rank, const CCSMatrix &local, int my_nnz, const std::vector<int> &all_nnz,
+                            std::vector<int> *gathered_row, std::vector<double> *gathered_val,
+                            std::vector<int> *nnz_displs, std::vector<int> *nnz_recvcounts) {
+  if (rank == 0) {
+    *nnz_recvcounts = all_nnz;
+    const auto layout = MakeGatherLayout(*nnz_recvcounts);
+    *nnz_displs = layout.displs;
+    gathered_row->assign(static_cast<std::size_t>(layout.total), 0);
+    gathered_val->assign(static_cast<std::size_t>(layout.total), 0.0);
+  }
+
+  const auto recv_i32 = MakeRootRecvI32(rank, gathered_row, nnz_recvcounts, nnz_displs);
+  const auto recv_f64 = MakeRootRecvF64(rank, gathered_val, nnz_recvcounts, nnz_displs);
+
+  MPI_Gatherv(local.row_idx.data(), my_nnz, MPI_INT, recv_i32.data, recv_i32.counts, recv_i32.displs, MPI_INT, 0,
+              MPI_COMM_WORLD);
+
+  MPI_Gatherv(local.values.data(), my_nnz, MPI_DOUBLE, recv_f64.data, recv_f64.counts, recv_f64.displs, MPI_DOUBLE, 0,
+              MPI_COMM_WORLD);
+}
+
+inline CCSMatrix BuildAndBroadcastResult(int rank, const CCSMatrix &left, const CCSMatrix &right,
+                                         const std::vector<int> &all_cols, const std::vector<int> &all_nnz,
+                                         const std::vector<int> &colptr_displs, const std::vector<int> &gathered_colptr,
+                                         std::vector<int> &&gathered_row, std::vector<double> &&gathered_val) {
+  CCSMatrix full;
+  if (rank == 0) {
+    full = BuildFullFromGathered(left, right, all_cols, all_nnz, colptr_displs, gathered_colptr,
+                                 std::move(gathered_row), std::move(gathered_val));
+  }
+  BroadcastCCSMatrix(&full, 0, MPI_COMM_WORLD);
+  return full;
+}
+
 }  // namespace
 
 GalkinDSparseMatMulMPI::GalkinDSparseMatMulMPI(const InType &in) {
@@ -239,59 +358,24 @@ bool GalkinDSparseMatMulMPI::RunImpl() {
   std::vector<int> all_nnz;
   std::vector<int> all_colptr_len;
 
-  if (rank == 0) {
-    all_cols.resize(static_cast<std::size_t>(size), 0);
-    all_nnz.resize(static_cast<std::size_t>(size), 0);
-    all_colptr_len.resize(static_cast<std::size_t>(size), 0);
-  }
-
-  MPI_Gather(&my_cols, 1, MPI_INT, rank == 0 ? all_cols.data() : nullptr, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  MPI_Gather(&my_nnz, 1, MPI_INT, rank == 0 ? all_nnz.data() : nullptr, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  MPI_Gather(&my_colptr_len, 1, MPI_INT, rank == 0 ? all_colptr_len.data() : nullptr, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  GatherMetaToRoot(rank, size, my_cols, my_nnz, my_colptr_len, &all_cols, &all_nnz, &all_colptr_len);
 
   std::vector<int> gathered_colptr;
   std::vector<int> colptr_displs;
   std::vector<int> colptr_recvcounts;
 
-  if (rank == 0) {
-    colptr_recvcounts = all_colptr_len;
-    const auto layout = MakeGatherLayout(colptr_recvcounts);
-    colptr_displs = layout.displs;
-    gathered_colptr.assign(static_cast<std::size_t>(layout.total), 0);
-  }
-
-  MPI_Gatherv(local.col_ptr.data(), my_colptr_len, MPI_INT, rank == 0 ? gathered_colptr.data() : nullptr,
-              rank == 0 ? colptr_recvcounts.data() : nullptr, rank == 0 ? colptr_displs.data() : nullptr, MPI_INT, 0,
-              MPI_COMM_WORLD);
+  GatherColPtrToRoot(rank, local, my_colptr_len, all_colptr_len, &gathered_colptr, &colptr_displs, &colptr_recvcounts);
 
   std::vector<int> gathered_row;
   std::vector<double> gathered_val;
   std::vector<int> nnz_displs;
   std::vector<int> nnz_recvcounts;
 
-  if (rank == 0) {
-    nnz_recvcounts = all_nnz;
-    const auto layout = MakeGatherLayout(nnz_recvcounts);
-    nnz_displs = layout.displs;
-    gathered_row.assign(static_cast<std::size_t>(layout.total), 0);
-    gathered_val.assign(static_cast<std::size_t>(layout.total), 0.0);
-  }
+  GatherNnzToRoot(rank, local, my_nnz, all_nnz, &gathered_row, &gathered_val, &nnz_displs, &nnz_recvcounts);
 
-  MPI_Gatherv(local.row_idx.data(), my_nnz, MPI_INT, rank == 0 ? gathered_row.data() : nullptr,
-              rank == 0 ? nnz_recvcounts.data() : nullptr, rank == 0 ? nnz_displs.data() : nullptr, MPI_INT, 0,
-              MPI_COMM_WORLD);
+  CCSMatrix full = BuildAndBroadcastResult(rank, left, right, all_cols, all_nnz, colptr_displs, gathered_colptr,
+                                           std::move(gathered_row), std::move(gathered_val));
 
-  MPI_Gatherv(local.values.data(), my_nnz, MPI_DOUBLE, rank == 0 ? gathered_val.data() : nullptr,
-              rank == 0 ? nnz_recvcounts.data() : nullptr, rank == 0 ? nnz_displs.data() : nullptr, MPI_DOUBLE, 0,
-              MPI_COMM_WORLD);
-
-  CCSMatrix full;
-  if (rank == 0) {
-    full = BuildFullFromGathered(left, right, all_cols, all_nnz, colptr_displs, gathered_colptr,
-                                 std::move(gathered_row), std::move(gathered_val));
-  }
-
-  BroadcastCCSMatrix(&full, 0, MPI_COMM_WORLD);
   GetOutput() = std::move(full);
   return true;
 }

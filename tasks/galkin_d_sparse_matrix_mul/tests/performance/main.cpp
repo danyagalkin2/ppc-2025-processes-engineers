@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <ranges>
 #include <vector>
 
 #include "galkin_d_sparse_matrix_mul/common/include/common.hpp"
@@ -106,12 +107,12 @@ double ChecksumCCS(const CCSMatrix &matrix) {
   double sum = 0.0;
 
   for (int col = 0; col < matrix.ncols; ++col) {
-    const std::size_t c = static_cast<std::size_t>(col);
+    const auto c = static_cast<std::size_t>(col);
     const int begin = matrix.col_ptr[c];
     const int end = matrix.col_ptr[c + 1U];
 
     for (int pos = begin; pos < end; ++pos) {
-      const std::size_t p = static_cast<std::size_t>(pos);
+      const auto p = static_cast<std::size_t>(pos);
       const int row = matrix.row_idx[p];
       const double value = matrix.values[p];
       sum += value * (1.0 + 0.001 * (row + 1)) * (1.0 + 0.0001 * (col + 1));

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <ranges>
 #include <vector>
 
 #include "task/include/task.hpp"
@@ -49,9 +50,7 @@ inline bool IsValidCCS(const CCSMatrix &matrix) {
     }
   }
 
-  // без std::ranges::all_of — чтобы меньше зависеть от "ranges" в IDE/настройках
-  return std::all_of(matrix.row_idx.begin(), matrix.row_idx.end(),
-                     [&](int row) { return row >= 0 && row < matrix.nrows; });
+  return std::ranges::all_of(matrix.row_idx, [&](int row) { return row >= 0 && row < matrix.nrows; });
 }
 
 inline bool IsMultipliable(const CCSMatrix &left, const CCSMatrix &right) {
